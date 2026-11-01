@@ -1,0 +1,184 @@
+import "server-only";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { ORIGINALS_BUCKET, previewUrl } from "@/lib/storage";
+import type {
+  CommentRow,
+  FileRow,
+  RoomFile,
+  RoomRow,
+  RoomStats,
+} from "@/lib/types";
+
+const VIDEO_URL_TTL_SECONDS = 60 * 60 * 6;
+
+export function isRoomExpired(room: Pick<RoomRow, "expires_at">): boolean {
+  return !!room.expires_at && new Date(room.expires_at).getTime() < Date.now();
+}
+
+export function isRoomOpen(room: RoomRow): boolean {
+  return room.status === "live" && !isRoomExpired(room);
+}
+
+export async function getRoomBySlug(slug: string): Promise<RoomRow | null> {
+  const { data, error } = await supabaseAdmin()
+    .from("rooms")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) throw error;
+  return data as RoomRow | null;
+}
+
+export async function getRoomById(id: string): Promise<RoomRow | null> {
+  const { data, error } = await supabaseAdmin()
+    .from("rooms")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as RoomRow | null;
+}
+
+export async function getFiles(roomId: string): Promise<FileRow[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("files")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as FileRow[];
+}
+
+export async function getComments(roomId: string): Promise<CommentRow[]> {
+  const { data, error } = await supabaseAdmin()
+    .from("comments")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as CommentRow[];
+}
+
+export async function countViews(roomId: string): Promise<number> {
+  const { count, error } = await supabaseAdmin()
+    .from("activity")
+    .select("id", { count: "exact", head: true })
+    .eq("room_id", roomId)
+    .eq("type", "view");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export function computeStats(
+  files: Pick<FileRow, "review_status">[],
+  commentCount: number,
+  views: number,
+): RoomStats {
+  const stats: RoomStats = { views, comments: commentCount, approved: 0, changes: 0, pending: 0 };
+  for (const f of files) {
+    if (f.review_status === "approved") stats.approved++;
+    else if (f.review_status === "changes") stats.changes++;
+    else stats.pending++;
+  }
+  return stats;
+}
+
+async function signedVideoUrls(files: FileRow[]): Promise<Map<string, string>> {
+  const videos = files.filter((f) => f.kind === "video");
+  const map = new Map<string, string>();
+  if (videos.length === 0) return map;
+  const { data, error } = await supabaseAdmin()
+    .storage.from(ORIGINALS_BUCKET)
+    .createSignedUrls(
+      videos.map((v) => v.original_path),
+      VIDEO_URL_TTL_SECONDS,
+    );
+  if (error) throw error;
+  data?.forEach((d, i) => {
+    if (d.signedUrl) map.set(videos[i].id, d.signedUrl);
+  });
+  return map;
+}
+
+export function toRoomFiles(
+  files: FileRow[],
+  comments: CommentRow[],
+  videoUrls: Map<string, string>,
+): RoomFile[] {
+  const byFile = new Map<string, CommentRow[]>();
+  for (const c of comments) {
+    const list = byFile.get(c.file_id) ?? [];
+    list.push(c);
+    byFile.set(c.file_id, list);
+  }
+  return files.map((f) => ({
+    id: f.id,
+    kind: f.kind,
+    fileName: f.file_name,
+    width: f.width,
+    height: f.height,
+    thumbUrl: previewUrl(f.thumb_path),
+    previewUrl: previewUrl(f.preview_path),
+    posterUrl: previewUrl(f.poster_path),
+    videoUrl: videoUrls.get(f.id) ?? null,
+    status: f.review_status,
+    reviewedBy: f.reviewed_by,
+    comments: (byFile.get(f.id) ?? []).map((c) => ({
+      id: c.id,
+      author: c.author_name,
+      body: c.body,
+      fromAgency: c.from_agency,
+      createdAt: c.created_at,
+    })),
+  }));
+}
+
+/** Everything the delivery room or the admin room page needs, in one call. */
+export async function loadRoomBundle(room: RoomRow) {
+  const [files, comments, views] = await Promise.all([
+    getFiles(room.id),
+    getComments(room.id),
+    countViews(room.id),
+  ]);
+  const videoUrls = await signedVideoUrls(files);
+  const roomFiles = toRoomFiles(files, comments, videoUrls);
+  const stats = computeStats(files, comments.length, views);
+  const hero =
+    roomFiles.find((f) => f.id === room.hero_file_id) ??
+    roomFiles.find((f) => f.kind === "image") ??
+    roomFiles[0] ??
+    null;
+  return { files: roomFiles, rawFiles: files, stats, hero };
+}
+
+export type RoomSummary = RoomRow & { stats: RoomStats; fileCount: number; coverUrl: string | null };
+
+export async function listRoomsWithStats(): Promise<RoomSummary[]> {
+  const db = supabaseAdmin();
+  const [{ data: rooms, error }, { data: files, error: fErr }, { data: comments, error: cErr }, { data: views, error: vErr }] =
+    await Promise.all([
+      db.from("rooms").select("*").order("created_at", { ascending: false }),
+      db.from("files").select("id, room_id, review_status, thumb_path, poster_path, kind, sort_order").order("sort_order"),
+      db.from("comments").select("room_id"),
+      db.from("activity").select("room_id").eq("type", "view"),
+    ]);
+  if (error) throw error;
+  if (fErr) throw fErr;
+  if (cErr) throw cErr;
+  if (vErr) throw vErr;
+
+  return ((rooms ?? []) as RoomRow[]).map((room) => {
+    const roomFiles = (files ?? []).filter((f) => f.room_id === room.id);
+    const commentCount = (comments ?? []).filter((c) => c.room_id === room.id).length;
+    const viewCount = (views ?? []).filter((v) => v.room_id === room.id).length;
+    const cover =
+      roomFiles.find((f) => f.id === room.hero_file_id) ?? roomFiles[0] ?? null;
+    return {
+      ...room,
+      fileCount: roomFiles.length,
+      stats: computeStats(roomFiles, commentCount, viewCount),
+      coverUrl: previewUrl(cover?.thumb_path ?? cover?.poster_path ?? null),
+    };
+  });
+}

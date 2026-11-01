@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), "Arial Narrow", Impact, sans-serif;
+  --font-typewriter: var(--font-typewriter), ui-monospace, "Courier New", monospace;
+
+  --color-brand: var(--brand-primary);
+  --color-approve: var(--brand-approve);
+  --color-decline: var(--brand-decline);
+
+  --color-room-bg: var(--room-bg);
+  --color-room-surface: var(--room-surface);
+  --color-room-fg: var(--room-fg);
+  --color-room-muted: var(--room-muted);
+  --color-room-border: var(--room-border);
+  --color-room-accent: var(--room-accent);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #f6f7f9;
+  color: #0f172a;
+}
+
+/* The room paints its own background. */
+body:has(.room-root) {
+  background: var(--room-bg, #070b16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
