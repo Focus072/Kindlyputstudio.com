@@ -95,7 +95,7 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
     "w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-base text-white outline-none placeholder:text-white/40 focus:border-white/40";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-md sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:items-center">
       <motion.div
         role="dialog"
         aria-modal="true"

@@ -127,7 +127,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     >
       <RoomBackdrop />
 
-      <header className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-7">
+      <header className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 sm:pt-[calc(1.75rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-3" aria-label={brand.name}>
           <img src={brand.mark} alt="" className="h-8 w-auto sm:h-9" />
           <span className="hidden text-[11px] font-semibold uppercase tracking-[0.28em] sm:inline">
@@ -159,7 +159,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
       </header>
 
       <main className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
-        <section className="grid gap-10 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-14 lg:pt-20">
+        <section className="grid gap-8 pt-8 sm:gap-10 sm:pt-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-14 lg:pt-20">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -176,14 +176,14 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               </p>
             </div>
 
-            <h1 className="mt-6 break-words font-display text-[clamp(3.75rem,14vw,9.5rem)] uppercase leading-[0.9] tracking-[-0.01em]">
+            <h1 className="mt-6 break-words font-display text-[clamp(2.9rem,13vw,9.5rem)] uppercase leading-[0.9] tracking-[-0.01em]">
               {room.title}
             </h1>
 
             {files.length > 0 && (
               <a
                 href={`/r/${room.slug}/download-all`}
-                className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-room-accent px-6 py-3.5 text-sm font-bold text-room-accent-fg shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                className="mt-7 flex w-full items-center justify-center gap-2.5 rounded-full bg-room-accent px-6 py-4 sm:mt-8 sm:inline-flex sm:w-auto sm:py-3.5 text-sm font-bold text-room-accent-fg shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Download className="size-4" />
                 Download all {files.length} {files.length === 1 ? "file" : "files"}
@@ -230,7 +230,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
           </motion.div>
         </section>
 
-        <section className="mt-20 sm:mt-28" aria-labelledby="deliverables">
+        <section className="mt-14 sm:mt-28" aria-labelledby="deliverables">
           <div className="mb-6 flex items-end justify-between gap-4 border-b border-room-border pb-4">
             <h2 id="deliverables" className="font-display text-3xl uppercase tracking-wide sm:text-4xl">
               Deliverables
@@ -262,7 +262,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
         </section>
       </main>
 
-      <footer className="mx-auto max-w-7xl px-5 pb-10 font-typewriter text-xs text-room-muted sm:px-8">
+      <footer className="mx-auto max-w-7xl px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] font-typewriter text-xs text-room-muted sm:px-8">
         Delivered with care by {room.deliveredBy}.
       </footer>
 
@@ -312,7 +312,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-x-0 bottom-6 z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-xl"
+            className="fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-xl"
           >
             {toast}
           </motion.div>

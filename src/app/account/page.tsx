@@ -68,15 +68,15 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
 
   return (
     <main className="min-h-dvh bg-ink text-cloud">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8">
         <img src={brand.logo.markOnDark} alt={brand.name} className="h-9 w-auto" />
         <form action="/auth/signout" method="post">
           <button className="text-sm text-mist/70 hover:text-white">Sign out</button>
         </form>
       </header>
-      <section className="mx-auto max-w-6xl px-5 pb-20 pt-8 sm:px-8">
+      <section className="mx-auto max-w-6xl px-5 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-6 sm:px-8 sm:pt-8">
         <p className="font-typewriter text-sm text-mist/70">Signed in as {client.email ?? client.name}</p>
-        <h1 className="mt-2 font-display text-5xl uppercase sm:text-7xl">
+        <h1 className="mt-2 break-words font-display text-5xl uppercase leading-none sm:text-7xl">
           {client.name.split(" ")[0]}&rsquo;s rooms
         </h1>
 
@@ -107,7 +107,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent" />
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="font-typewriter text-[11px] text-white/70">Prepared for {room.client_name}</p>
-                        <p className="truncate font-display text-3xl uppercase text-white">{room.title}</p>
+                        <p className="mt-1 line-clamp-2 font-display text-3xl uppercase leading-[0.95] text-white">{room.title}</p>
                       </div>
                     </div>
                     <p className="px-4 py-3 text-xs text-mist/70">

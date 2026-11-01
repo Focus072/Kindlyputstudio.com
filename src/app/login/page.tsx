@@ -9,10 +9,10 @@ export const metadata: Metadata = { title: "Sign in", robots: { index: false } }
 export default async function LoginPage() {
   if (await isAdmin()) redirect("/admin");
   return (
-    <main className="flex min-h-dvh items-center justify-center px-5">
+    <main className="flex min-h-dvh items-center justify-center bg-ink px-5 py-[env(safe-area-inset-top)]">
       <div className="w-full max-w-sm">
-        <img src={brand.logo.full} alt={brand.name} className="mx-auto h-28 w-auto" />
-        <h1 className="mt-8 text-center font-display text-5xl uppercase text-ink">Studio admin</h1>
+        <img src={brand.logo.fullOnDark} alt={brand.name} className="mx-auto h-28 w-auto" />
+        <h1 className="mt-8 text-center font-display text-5xl uppercase text-white">Studio admin</h1>
         <LoginForm />
       </div>
     </main>

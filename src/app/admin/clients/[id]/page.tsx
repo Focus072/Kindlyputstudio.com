@@ -29,8 +29,8 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
         <div className="mt-3 flex items-center gap-4">
           <ClientAvatar name={client.full_name ?? client.email ?? "?"} url={client.avatar_url} size="size-14" />
           <div className="min-w-0">
-            <h1 className="truncate font-display text-4xl uppercase text-ink">{client.full_name ?? "No name"}</h1>
-            <p className="text-sm text-slate-500">
+            <h1 className="break-words font-display text-4xl uppercase leading-none text-ink">{client.full_name ?? "No name"}</h1>
+            <p className="mt-1 break-all text-sm text-slate-500">
               {client.email} · {client.provider === "google" ? "Google account" : "Email account"} · joined{" "}
               {timeAgo(client.created_at)}
             </p>
@@ -46,7 +46,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
           <ul className="divide-y divide-slate-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
             {rooms.map(({ room, firstOpened, lastOpened }) => (
               <li key={room!.id}>
-                <Link href={`/admin/rooms/${room!.id}`} className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50">
+                <Link href={`/admin/rooms/${room!.id}`} className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-slate-50 sm:px-5">
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-ink">{room!.title}</p>
                     <p className="text-xs text-slate-500">Prepared for {room!.client_name}</p>

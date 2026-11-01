@@ -15,12 +15,16 @@ const sans = Inter({ variable: "--font-sans", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: { default: brand.name, template: `%s · ${brand.name}` },
   description: `Photo and video delivery rooms by ${brand.legalName}, ${brand.city}.`,
+  applicationName: brand.name,
+  appleWebApp: { capable: true, title: "KPS", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: "#1D2B32",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

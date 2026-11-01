@@ -11,7 +11,7 @@ export default async function ClientsPage() {
   return (
     <main>
       <p className="font-typewriter text-sm text-slate-500">Client accounts</p>
-      <h1 className="font-display text-4xl uppercase text-ink sm:text-5xl">Clients</h1>
+      <h1 className="font-display text-5xl uppercase leading-none text-ink">Clients</h1>
       <p className="mt-1 text-sm text-slate-500">
         Everyone who created an account from a room link. {clients.length} total.
       </p>
@@ -24,11 +24,14 @@ export default async function ClientsPage() {
         <ul className="mt-8 divide-y divide-slate-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
           {clients.map((c) => (
             <li key={c.id}>
-              <Link href={`/admin/clients/${c.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50">
+              <Link href={`/admin/clients/${c.id}`} className="flex items-center gap-4 px-4 py-4 hover:bg-slate-50 active:bg-slate-100 sm:px-5">
                 <ClientAvatar name={c.full_name ?? c.email ?? "?"} url={c.avatar_url} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-ink">{c.full_name ?? "No name"}</p>
                   <p className="truncate text-sm text-slate-500">{c.email}</p>
+                  <p className="mt-0.5 text-xs text-slate-400 sm:hidden">
+                    {c.roomCount} {c.roomCount === 1 ? "room" : "rooms"} · {c.approvals} approved · seen {timeAgo(c.last_seen_at)}
+                  </p>
                 </div>
                 <div className="hidden text-right text-xs text-slate-500 sm:block">
                   <p>
