@@ -21,15 +21,16 @@ You need [Node.js 20 or newer](https://nodejs.org).
    ```bash
    cp .env.example .env.local
    ```
-   Open `.env.local` and paste your Supabase URL and secret key, an admin
-   password, and a random `SESSION_SECRET` (the file says where to find each one).
+   Open `.env.local` and paste your Supabase URL and secret key (the file
+   says where to find each one).
 3. Set up the database once. In Supabase, open **SQL Editor > New query**,
    paste everything from `supabase/migrations/0001_init.sql`, and press **Run**.
-4. Start the app:
+4. Create your admin login (see **Admin accounts** below).
+5. Start the app:
    ```bash
    npm run dev
    ```
-5. Open http://localhost:3000/login, sign in with your admin password,
+6. Open http://localhost:3000/login, sign in with your username and password,
    create a room, drop in some photos, and press **Open room**.
 
 ## Put it online (Vercel)
@@ -37,8 +38,23 @@ You need [Node.js 20 or newer](https://nodejs.org).
 1. In Vercel, **Add New > Project** and import this GitHub repo.
 2. Under **Environment Variables**, add the same values from `.env.local`.
    If you connect Supabase through Vercel's Supabase integration instead, the
-   Supabase values are added for you; you only add `ADMIN_PASSWORD` and `SESSION_SECRET`.
+   Supabase values are added for you and nothing else is needed.
 3. Press **Deploy**. Every merge to `main` redeploys automatically.
+
+## Admin accounts
+
+Studio logins live in the `admin_users` table. Passwords are stored as
+scrypt hashes, never in plain text. To add someone or reset a password:
+
+1. Make a hash: `node scripts/hash-password.mjs "their-password"`
+2. In Supabase **SQL Editor**, run:
+   ```sql
+   insert into admin_users (username, display_name, password_hash)
+   values ('Name', 'Name', 'PASTE-HASH-HERE')
+   on conflict (lower(username)) do update set password_hash = excluded.password_hash;
+   ```
+
+Usernames are not case sensitive.
 
 ## Change the branding
 

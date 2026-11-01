@@ -83,6 +83,21 @@ create table if not exists public.settings (
 );
 insert into public.settings (id) values (1) on conflict do nothing;
 
+-- Admin accounts (studio team) -------------------------------------------
+-- Passwords are stored as scrypt hashes, never in plain text.
+-- Add a teammate with: node scripts/hash-password.mjs "their-password"
+-- then insert the printed hash (see README).
+create table if not exists public.admin_users (
+  id             uuid primary key default gen_random_uuid(),
+  username       text not null,
+  display_name   text not null,
+  password_hash  text not null,
+  role           text not null default 'super_admin' check (role in ('super_admin', 'admin')),
+  created_at     timestamptz not null default now(),
+  last_login_at  timestamptz
+);
+create unique index if not exists admin_users_username_idx on public.admin_users (lower(username));
+
 -- Security -----------------------------------------------------------------
 -- Row level security is on with no public policies: browsers can never read
 -- or write these tables directly. The Next.js server uses the secret key and
@@ -92,6 +107,7 @@ alter table public.files    enable row level security;
 alter table public.comments enable row level security;
 alter table public.activity enable row level security;
 alter table public.settings enable row level security;
+alter table public.admin_users enable row level security;
 
 -- Storage ------------------------------------------------------------------
 -- previews: web-sized photos, thumbnails, and video posters (public, CDN cached,
