@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { safeNext } from "@/lib/safe-next";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export function NewPasswordForm({ supabaseUrl, supabaseKey, next }: { supabaseUrl: string; supabaseKey: string; next: string }) {
@@ -22,7 +23,7 @@ export function NewPasswordForm({ supabaseUrl, supabaseKey, next }: { supabaseUr
         /different from the old/i.test(error.message) ? "Please pick a password you have not used before." : error.message,
       );
     }
-    window.location.assign(next);
+    window.location.assign(safeNext(next));
   }
 
   const input =

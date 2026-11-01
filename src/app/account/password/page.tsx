@@ -3,13 +3,10 @@ import { redirect } from "next/navigation";
 import { brand } from "@/config/brand";
 import { getClientUser } from "@/lib/client-auth";
 import { supabasePublicConfig } from "@/lib/env";
+import { safeNext } from "@/lib/safe-next";
 import { NewPasswordForm } from "./NewPasswordForm";
 
 export const metadata: Metadata = { title: "Set a new password", robots: { index: false } };
-
-function safeNext(value: unknown): string {
-  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//") ? value : "/account";
-}
 
 /** Landing page for password reset links: the link has already signed the client in. */
 export default async function NewPasswordPage({ searchParams }: PageProps<"/account/password">) {
