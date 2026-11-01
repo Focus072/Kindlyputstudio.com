@@ -58,7 +58,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
           supabaseKey: key,
           fileCount: files.length,
           teaserUrl: previewUrl(hero?.thumb_path ?? hero?.poster_path ?? null),
-          authError: sp.auth_error === "1",
+          authError: sp.auth_error === "confirmed" ? "confirmed" : sp.auth_error === "1" ? "1" : null,
         }}
       />
     );

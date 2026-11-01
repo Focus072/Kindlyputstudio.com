@@ -39,7 +39,7 @@ export type RoomViewProps = {
     supabaseKey: string;
     fileCount: number;
     teaserUrl: string | null;
-    authError?: boolean;
+    authError?: "1" | "confirmed" | null;
   };
 };
 

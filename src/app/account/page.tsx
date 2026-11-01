@@ -57,7 +57,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
           brandMark={brand.logo.markOnDark}
           heading="Your rooms"
           subheading={`Create an account or sign in to see every room ${brand.name} has delivered to you.`}
-          initialError={sp.auth_error === "1"}
+          initialError={sp.auth_error === "confirmed" ? "confirmed" : sp.auth_error === "1" ? "1" : null}
         />
       </main>
     );

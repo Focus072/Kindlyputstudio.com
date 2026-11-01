@@ -13,7 +13,8 @@ type Props = {
   heading: string;
   subheading: string;
   brandMark: string;
-  initialError?: boolean;
+  /** "1": a sign-in link failed. "confirmed": the email is confirmed, sign in with password. */
+  initialError?: "1" | "confirmed" | null;
 };
 
 function GoogleIcon() {
@@ -28,18 +29,23 @@ function GoogleIcon() {
 }
 
 export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading, brandMark, initialError }: Props) {
-  const [mode, setMode] = useState<"signup" | "signin">("signup");
+  const confirmed = initialError === "confirmed";
+  const [mode, setMode] = useState<"signup" | "signin">(confirmed ? "signin" : "signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(
-    initialError ? "That sign-in link did not work. Please try again." : null,
+    initialError === "1" ? "That sign-in link did not work. Please try again." : null,
+  );
+  const [notice, setNotice] = useState<string | null>(
+    confirmed ? "Your email is confirmed. Sign in with your email and password to open your room." : null,
   );
   const [checkEmail, setCheckEmail] = useState(false);
 
   const supabase = () => supabaseBrowser(supabaseUrl, supabaseKey);
-  const callback = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const callback = (flow?: "email") =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${flow ? `&flow=${flow}` : ""}`;
 
   async function google() {
     setError(null);
@@ -61,13 +67,14 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setBusy("email");
     const client = supabase();
     if (mode === "signup") {
       const { data, error } = await client.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { full_name: name.trim() }, emailRedirectTo: callback() },
+        options: { data: { full_name: name.trim() }, emailRedirectTo: callback("email") },
       });
       setBusy(null);
       if (error) return setError(error.message);
@@ -134,6 +141,12 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
             <p className="mt-2 text-sm text-mist/80">
               {mode === "signup" ? subheading : "Sign in to open your rooms."}
             </p>
+            {notice && (
+              <p role="status" className="mt-4 flex items-start gap-2 rounded-2xl bg-approve/15 px-4 py-3 text-sm text-white">
+                <MailCheck className="mt-0.5 size-4 shrink-0 text-approve" />
+                {notice}
+              </p>
+            )}
 
             <button
               type="button"

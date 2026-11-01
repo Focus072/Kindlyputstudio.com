@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
     if (!error) return NextResponse.redirect(`${origin}${next}`);
   }
   const back = new URL(next, origin);
-  back.searchParams.set("auth_error", "1");
+  // Email links are often opened in a different browser or app (Gmail, Messages)
+  // than the one used to sign up, so the code cannot be exchanged there. Supabase
+  // has already confirmed the address by this point, so ask the client to sign in
+  // with their password instead of showing a generic error.
+  const fromEmail = searchParams.get("flow") === "email" || Boolean(tokenHash);
+  back.searchParams.set("auth_error", fromEmail ? "confirmed" : "1");
   return NextResponse.redirect(back);
 }
