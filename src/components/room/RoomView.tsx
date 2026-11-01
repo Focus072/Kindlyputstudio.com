@@ -45,6 +45,23 @@ export type RoomViewProps = {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+/**
+ * Room titles often start with the shoot date ("10/30/2026 · Foreign Fleet · Day 2").
+ * The date moves into the small meta lines and the headline scales with its length,
+ * so long titles never break in the middle of a word.
+ */
+function splitTitle(title: string) {
+  const m = title.match(/^\s*(\d{1,2}\/\d{1,2}\/\d{2,4})\s*[·•|\-–—]\s*(.+)$/);
+  return m ? { date: m[1], headline: m[2] } : { date: null, headline: title };
+}
+
+function titleSize(headline: string) {
+  const n = headline.length;
+  if (n <= 16) return "text-[clamp(2.9rem,13vw,9.5rem)]";
+  if (n <= 28) return "text-[clamp(2.6rem,11vw,6.5rem)] lg:text-[clamp(3rem,5.6vw,6.5rem)]";
+  return "text-[clamp(2.4rem,10vw,5rem)] lg:text-[clamp(2.75rem,4.4vw,5rem)]";
+}
+
 export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
@@ -121,6 +138,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
   const heroIndex = hero ? files.findIndex((f) => f.id === hero.id) : -1;
   const heroImage = hero ? hero.previewUrl ?? hero.posterUrl ?? hero.thumbUrl : null;
+  const { date, headline } = splitTitle(room.title);
 
   return (
     <div
@@ -177,6 +195,11 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             className="min-w-0"
           >
             <div className="space-y-1.5 font-typewriter text-sm text-room-muted">
+              {date && (
+                <p>
+                  Shot on <span className="font-bold text-room-fg">{date}</span>
+                </p>
+              )}
               <p>
                 Prepared for <span className="font-bold uppercase text-room-fg">{room.clientName}</span>
               </p>
@@ -186,8 +209,10 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               </p>
             </div>
 
-            <h1 className="mt-6 break-words font-display text-[clamp(2.9rem,13vw,9.5rem)] uppercase leading-[0.9] tracking-[-0.01em]">
-              {room.title}
+            <h1
+              className={`mt-6 text-balance break-words font-display uppercase leading-[0.9] tracking-[-0.01em] ${titleSize(headline)}`}
+            >
+              {headline}
             </h1>
 
             {files.length > 0 && (
