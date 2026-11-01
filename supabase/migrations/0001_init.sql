@@ -109,6 +109,14 @@ alter table public.activity enable row level security;
 alter table public.settings enable row level security;
 alter table public.admin_users enable row level security;
 
+-- Only the server's secret key (service_role) gets table access. Projects
+-- created with "Automatically expose new tables" off need this grant.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+alter default privileges in schema public grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema public grant usage, select on sequences to service_role;
+
 -- Storage ------------------------------------------------------------------
 -- previews: web-sized photos, thumbnails, and video posters (public, CDN cached,
 --           random file names). originals: full-resolution files (private,
