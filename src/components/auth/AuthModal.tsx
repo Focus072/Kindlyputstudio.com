@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Loader2, MailCheck } from "lucide-react";
+import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
@@ -14,7 +15,9 @@ type Props = {
   subheading: string;
   brandMark: string;
   /** "1": a sign-in link failed. "confirmed": the email is confirmed, sign in with password. */
-  initialError?: "1" | "confirmed" | null;
+  initialError?: "1" | "confirmed" | "reset" | null;
+  /** Shows a "Back to home" link, for pages a client can reach without a room link. */
+  homeHref?: string;
 };
 
 function GoogleIcon() {
@@ -28,24 +31,51 @@ function GoogleIcon() {
   );
 }
 
-export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading, brandMark, initialError }: Props) {
+export function AuthModal({
+  supabaseUrl,
+  supabaseKey,
+  next,
+  heading,
+  subheading,
+  brandMark,
+  initialError,
+  homeHref,
+}: Props) {
   const confirmed = initialError === "confirmed";
-  const [mode, setMode] = useState<"signup" | "signin">(confirmed ? "signin" : "signup");
+  const [mode, setMode] = useState<"signup" | "signin" | "forgot">(
+    confirmed || initialError === "reset" ? "signin" : "signup",
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
   const [error, setError] = useState<string | null>(
-    initialError === "1" ? "That sign-in link did not work. Please try again." : null,
+    initialError === "1"
+      ? "That sign-in link did not work. Please try again."
+      : initialError === "reset"
+        ? "That reset link has expired or was opened in a different browser. Tap Forgot password for a new one, then open it on this device."
+        : null,
   );
   const [notice, setNotice] = useState<string | null>(
     confirmed ? "Your email is confirmed. Sign in with your email and password to open your room." : null,
   );
-  const [checkEmail, setCheckEmail] = useState(false);
+  const [checkEmail, setCheckEmail] = useState<"confirm" | "reset" | null>(null);
+  const [resent, setResent] = useState<"idle" | "sending" | "sent">("idle");
 
   const supabase = () => supabaseBrowser(supabaseUrl, supabaseKey);
-  const callback = (flow?: "email") =>
-    `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}${flow ? `&flow=${flow}` : ""}`;
+  const callback = (flow?: "email" | "recovery", to = next) =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent(to)}${flow ? `&flow=${flow}` : ""}`;
+
+  async function resend() {
+    setResent("sending");
+    const { error } = await supabase().auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: callback("email") },
+    });
+    setResent(error ? "idle" : "sent");
+    if (error) setError(/rate limit|security purposes/i.test(error.message) ? "Please wait a minute before asking again." : error.message);
+  }
 
   async function google() {
     setError(null);
@@ -70,6 +100,18 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
     setNotice(null);
     setBusy("email");
     const client = supabase();
+    if (mode === "forgot") {
+      const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: callback("recovery", `/account/password?next=${encodeURIComponent(next)}`),
+      });
+      setBusy(null);
+      if (error) {
+        return setError(
+          /rate limit|security purposes/i.test(error.message) ? "Please wait a minute before asking again." : error.message,
+        );
+      }
+      return setCheckEmail("reset");
+    }
     if (mode === "signup") {
       const { data, error } = await client.auth.signUp({
         email: email.trim(),
@@ -83,16 +125,17 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
         setMode("signin");
         return setError("You already have an account with this email. Please sign in.");
       }
-      setCheckEmail(true);
+      setCheckEmail("confirm");
     } else {
       const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
       setBusy(null);
       if (error) {
-        return setError(
-          /Email not confirmed/i.test(error.message)
-            ? "Please confirm your email first. Check your inbox for our link."
-            : "That email or password is not right.",
-        );
+        if (/Email not confirmed/i.test(error.message)) {
+          // Show the "check your email" screen, which has a Resend button.
+          setResent("idle");
+          return setCheckEmail("confirm");
+        }
+        return setError("That email or password is not right.");
       }
       window.location.reload();
     }
@@ -103,6 +146,14 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:items-center">
+      {homeHref && (
+        <Link
+          href={homeHref}
+          className="absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top))] inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-4 py-2.5 text-sm font-semibold text-white/85 hover:bg-white/10 sm:left-6 sm:top-6"
+        >
+          <ArrowLeft className="size-4" /> Back to home
+        </Link>
+      )}
       <motion.div
         role="dialog"
         aria-modal="true"
@@ -118,28 +169,53 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
           <div className="mt-6">
             <MailCheck className="size-8 text-steel" />
             <h2 id="auth-heading" className="mt-3 font-display text-3xl uppercase">Check your email</h2>
-            <p className="mt-2 text-sm text-mist/80">
-              We sent a confirmation link to <span className="font-semibold text-white">{email}</span>. Tap it and
-              you will land right back in your room.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setCheckEmail(false);
-                setMode("signin");
-              }}
-              className="mt-6 text-sm font-semibold text-steel underline-offset-4 hover:underline"
-            >
-              Already confirmed? Sign in
-            </button>
+            {checkEmail === "confirm" ? (
+              <p className="mt-2 text-sm text-mist/80">
+                We sent a confirmation link to <span className="font-semibold text-white">{email}</span>. Tap it and
+                you will land right back in your room. It can take a minute, and sometimes lands in spam.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-mist/80">
+                If <span className="font-semibold text-white">{email}</span> has an account, a link to set a new
+                password is on its way. Open it on this device.
+              </p>
+            )}
+            {error && <p className="mt-3 text-sm text-decline">{error}</p>}
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-semibold">
+              {checkEmail === "confirm" && (
+                <button
+                  type="button"
+                  onClick={resend}
+                  disabled={resent !== "idle"}
+                  className="text-white underline-offset-4 hover:underline disabled:no-underline disabled:opacity-60"
+                >
+                  {resent === "sent" ? "Sent again" : resent === "sending" ? "Sending…" : "Resend email"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setCheckEmail(null);
+                  setError(null);
+                  setMode("signin");
+                }}
+                className="text-steel underline-offset-4 hover:underline"
+              >
+                {checkEmail === "confirm" ? "Already confirmed? Sign in" : "Back to sign in"}
+              </button>
+            </div>
           </div>
         ) : (
           <>
             <h2 id="auth-heading" className="mt-5 font-display text-4xl uppercase leading-none">
-              {mode === "signup" ? heading : "Welcome back"}
+              {mode === "signup" ? heading : mode === "forgot" ? "Reset password" : "Welcome back"}
             </h2>
             <p className="mt-2 text-sm text-mist/80">
-              {mode === "signup" ? subheading : "Sign in to open your rooms."}
+              {mode === "signup"
+                ? subheading
+                : mode === "forgot"
+                  ? "Enter the email on your account and we will send you a link to set a new password."
+                  : "Sign in to open your rooms."}
             </p>
             {notice && (
               <p role="status" className="mt-4 flex items-start gap-2 rounded-2xl bg-approve/15 px-4 py-3 text-sm text-white">
@@ -148,6 +224,8 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
               </p>
             )}
 
+            {mode !== "forgot" && (
+              <>
             <button
               type="button"
               onClick={google}
@@ -163,8 +241,10 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
               or with email
               <span className="h-px flex-1 bg-white/10" />
             </div>
+              </>
+            )}
 
-            <form onSubmit={submit} className="space-y-3">
+            <form onSubmit={submit} className={`space-y-3 ${mode === "forgot" ? "mt-6" : ""}`}>
               {mode === "signup" && (
                 <input
                   required
@@ -185,16 +265,31 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
                 autoComplete="email"
                 className={input}
               />
-              <input
-                required
-                type="password"
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "Create a password (8+ characters)" : "Password"}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                className={input}
-              />
+              {mode !== "forgot" && (
+                <input
+                  required
+                  type="password"
+                  minLength={mode === "signup" ? 8 : undefined}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === "signup" ? "Create a password (8+ characters)" : "Password"}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  className={input}
+                />
+              )}
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setNotice(null);
+                    setMode("forgot");
+                  }}
+                  className="block px-1 text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
               {error && <p className="text-sm text-decline">{error}</p>}
               <button
                 type="submit"
@@ -202,21 +297,22 @@ export function AuthModal({ supabaseUrl, supabaseKey, next, heading, subheading,
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-steel px-5 py-3.5 text-sm font-bold uppercase tracking-wider text-ink transition-opacity disabled:opacity-60"
               >
                 {busy === "email" && <Loader2 className="size-4 animate-spin" />}
-                {mode === "signup" ? "Create account" : "Sign in"}
+                {mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in"}
               </button>
             </form>
 
             <p className="mt-5 text-center text-sm text-white/60">
-              {mode === "signup" ? "Already have an account?" : "New here?"}{" "}
+              {mode === "signup" ? "Already have an account?" : mode === "forgot" ? "Remembered it?" : "New here?"}{" "}
               <button
                 type="button"
                 onClick={() => {
                   setError(null);
-                  setMode(mode === "signup" ? "signin" : "signup");
+                  setNotice(null);
+                  setMode(mode === "signin" ? "signup" : "signin");
                 }}
                 className="font-semibold text-steel underline-offset-4 hover:underline"
               >
-                {mode === "signup" ? "Sign in" : "Create an account"}
+                {mode === "signin" ? "Create an account" : "Sign in"}
               </button>
             </p>
           </>

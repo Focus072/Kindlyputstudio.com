@@ -13,10 +13,22 @@ export async function generateMetadata({ params }: PageProps<"/r/[slug]">): Prom
   const { slug } = await params;
   const room = await getRoomBySlug(slug);
   if (!room) return { title: "Room not found", robots: { index: false } };
+  const title = `${room.title} · Prepared for ${room.client_name}`;
+  const description = `Your files from ${room.delivered_by}. Tap to review, approve, and download.`;
+  // Link previews in Messages, WhatsApp, and email show the room's cover photo.
+  // This is the same teaser image the sign-up screen already shows to anyone with the link.
+  let cover: string | null = null;
+  if (isRoomOpen(room)) {
+    const files = await getFiles(room.id);
+    const hero = files.find((f) => f.id === room.hero_file_id) ?? files[0];
+    cover = previewUrl(hero?.thumb_path ?? hero?.poster_path ?? null);
+  }
   return {
-    title: `${room.title} · Prepared for ${room.client_name}`,
-    description: `Your files from ${room.delivered_by}.`,
+    title,
+    description,
     robots: { index: false, follow: false },
+    openGraph: { title, description, type: "website", ...(cover ? { images: [{ url: cover, alt: room.title }] } : {}) },
+    twitter: { card: "summary_large_image", title, description, ...(cover ? { images: [cover] } : {}) },
   };
 }
 

@@ -13,7 +13,29 @@ export const metadata: Metadata = {
   title: { absolute: `${brand.name} · Photo & video for Bakersfield businesses` },
   description:
     "Kindly Put Studio shoots photo and video for Bakersfield businesses and delivers every file in a private, branded room you can approve and download from.",
-  openGraph: { title: `${brand.name} · Kindly put. Boldly seen.`, type: "website" },
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: `${brand.name} · Kindly put. Boldly seen.`,
+    description: "Photo and video for Bakersfield businesses, delivered in a private branded room.",
+    type: "website",
+    url: "/",
+    siteName: brand.name,
+  },
+};
+
+// Tells Google this is a local business in Bakersfield (helps local search and Maps).
+const businessJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  name: brand.name,
+  slogan: brand.tagline,
+  url: brand.siteUrl,
+  logo: `${brand.siteUrl}${brand.logo.full}`,
+  image: `${brand.siteUrl}/opengraph-image.png`,
+  description: "Photo, video, and social content for Bakersfield businesses.",
+  areaServed: { "@type": "City", name: "Bakersfield" },
+  address: { "@type": "PostalAddress", addressLocality: "Bakersfield", addressRegion: "CA", addressCountry: "US" },
+  knowsAbout: ["Photography", "Videography", "Social media content", "Short-form video"],
 };
 
 const services = [
@@ -43,6 +65,10 @@ export default async function Home() {
 
   return (
     <main className="min-h-dvh overflow-x-hidden bg-[#F4F5F6] text-ink">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(businessJsonLd).replace(/</g, "\\u003c") }}
+      />
       {/* Nav */}
       <header className="sticky top-0 z-40 border-b border-black/5 bg-[#F4F5F6]/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 sm:px-8">

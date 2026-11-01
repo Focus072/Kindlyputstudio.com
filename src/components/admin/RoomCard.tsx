@@ -14,7 +14,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
       <Link href={`/admin/rooms/${room.id}`} className="block active:opacity-90">
         <div className="relative aspect-[4/3] sm:aspect-[16/10]" style={{ background: theme.background }}>
           {room.coverUrl ? (
-            <img src={room.coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
+            <img src={room.coverUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" />
           ) : (
             <span
               className="absolute -left-10 top-0 size-40 rounded-full blur-2xl"
