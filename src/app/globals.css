@@ -6,6 +6,11 @@
   --font-typewriter: var(--font-typewriter), ui-monospace, "Courier New", monospace;
 
   --color-brand: var(--brand-primary);
+  --color-ink: #1d2b32;
+  --color-slate-brand: #4f6671;
+  --color-steel: #b6c3c8;
+  --color-mist: #cfd8d8;
+  --color-cloud: #e1e2e5;
   --color-approve: var(--brand-approve);
   --color-decline: var(--brand-decline);
 
@@ -15,6 +20,7 @@
   --color-room-muted: var(--room-muted);
   --color-room-border: var(--room-border);
   --color-room-accent: var(--room-accent);
+  --color-room-accent-fg: var(--room-accent-fg);
 }
 
 html {
@@ -23,13 +29,13 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: #f6f7f9;
-  color: #0f172a;
+  background: #eceef0;
+  color: #1d2b32;
 }
 
 /* The room paints its own background. */
 body:has(.room-root) {
-  background: var(--room-bg, #070b16);
+  background: var(--room-bg, #0f181d);
 }
 
 @media (prefers-reduced-motion: reduce) {

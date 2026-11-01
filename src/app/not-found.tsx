@@ -3,7 +3,7 @@ import { brand } from "@/config/brand";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-[#070B16] px-6 text-center text-white">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-ink px-6 text-center text-white">
       <p className="font-typewriter text-sm text-white/50">404</p>
       <h1 className="mt-3 font-display text-5xl uppercase">Nothing here</h1>
       <p className="mt-4 max-w-sm text-white/60">

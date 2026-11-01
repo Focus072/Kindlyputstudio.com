@@ -138,7 +138,7 @@ export function Uploader({ roomId }: { roomId: string }) {
         }`}
       >
         <CloudUpload className="size-8 text-slate-400" />
-        <p className="mt-3 font-bold text-slate-900">Drop photos and videos here</p>
+        <p className="mt-3 font-bold text-ink">Drop photos and videos here</p>
         <p className="mt-1 text-sm text-slate-500">or tap to choose files. JPG, PNG, WebP, MP4, MOV.</p>
         <input
           ref={inputRef}

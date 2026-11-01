@@ -23,7 +23,7 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
   }
 
   const btn =
-    "inline-flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30";
+    "inline-flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-ink disabled:opacity-30";
 
   return (
     <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 ${pending ? "opacity-70" : ""}`}>
@@ -31,7 +31,7 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
         const open = openId === f.id;
         return (
           <li key={f.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div className="relative aspect-[4/5] bg-slate-900">
+            <div className="relative aspect-[4/5] bg-ink">
               {(f.thumbUrl ?? f.posterUrl) ? (
                 <img src={(f.thumbUrl ?? f.posterUrl)!} alt={f.fileName} loading="lazy" className="absolute inset-0 size-full object-cover" />
               ) : (
@@ -110,7 +110,7 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
                     placeholder="Reply"
                     className="min-w-0 flex-1 rounded-full border border-slate-200 px-3 py-1.5 text-base outline-none focus:border-brand sm:text-xs"
                   />
-                  <button className="rounded-full bg-slate-900 px-3 text-xs font-bold text-white">Send</button>
+                  <button className="rounded-full bg-ink px-3 text-xs font-bold text-white">Send</button>
                 </form>
               </div>
             )}

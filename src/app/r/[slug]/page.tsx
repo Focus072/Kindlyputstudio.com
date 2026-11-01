@@ -40,7 +40,7 @@ export default async function RoomPage({ params }: PageProps<"/r/[slug]">) {
       files={files}
       heroId={hero?.id ?? null}
       initialViews={stats.views}
-      brand={{ name: brand.name, logo: brand.logo, poweredByLabel: brand.poweredByLabel }}
+      brand={{ name: brand.name, mark: brand.logo.markOnDark, poweredByLabel: brand.poweredByLabel }}
       preview={admin}
     />
   );

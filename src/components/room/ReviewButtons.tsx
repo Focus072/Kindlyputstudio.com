@@ -72,7 +72,7 @@ export function ReviewButtons({
       >
         <MessageCircle className={icon} strokeWidth={2.25} />
         {commentCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-room-accent px-1 text-[10px] font-bold leading-4 text-white">
+          <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-room-accent px-1 text-[10px] font-bold leading-4 text-room-accent-fg">
             {commentCount}
           </span>
         )}

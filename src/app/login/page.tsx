@@ -11,8 +11,8 @@ export default async function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-5">
       <div className="w-full max-w-sm">
-        <p className="font-typewriter text-sm text-slate-500">{brand.legalName}</p>
-        <h1 className="mt-2 font-display text-5xl uppercase tracking-wide text-slate-900">Studio admin</h1>
+        <img src={brand.logo.full} alt={brand.name} className="mx-auto h-28 w-auto" />
+        <h1 className="mt-8 text-center font-display text-5xl uppercase text-ink">Studio admin</h1>
         <LoginForm />
       </div>
     </main>

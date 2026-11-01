@@ -27,7 +27,7 @@ export type RoomViewProps = {
   files: RoomFile[];
   heroId: string | null;
   initialViews: number;
-  brand: { name: string; logo: string | null; poweredByLabel: string };
+  brand: { name: string; mark: string; poweredByLabel: string };
   /** Admin preview: shows the room exactly as the client sees it, without tracking. */
   preview?: boolean;
 };
@@ -142,12 +142,11 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
       <RoomBackdrop />
 
       <header className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pt-5 sm:px-8 sm:pt-7">
-        <div className="flex items-center gap-2">
-          {brand.logo ? (
-            <img src={brand.logo} alt={brand.name} className="h-6 w-auto sm:h-7" />
-          ) : (
-            <span className="font-display text-lg uppercase tracking-wide">{brand.name}</span>
-          )}
+        <div className="flex items-center gap-3" aria-label={brand.name}>
+          <img src={brand.mark} alt="" className="h-8 w-auto sm:h-9" />
+          <span className="hidden text-[11px] font-semibold uppercase tracking-[0.28em] sm:inline">
+            {brand.name}
+          </span>
         </div>
         <span className="inline-flex items-center gap-2 rounded-full border border-room-border bg-white/5 px-3 py-1.5 font-typewriter text-[11px] text-room-muted backdrop-blur-md">
           <span className="size-1.5 rounded-full bg-room-accent" />
@@ -180,7 +179,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             {files.length > 0 && (
               <a
                 href={`/r/${room.slug}/download-all`}
-                className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-room-accent px-6 py-3.5 text-sm font-bold text-white shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+                className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-room-accent px-6 py-3.5 text-sm font-bold text-room-accent-fg shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Download className="size-4" />
                 Download all {files.length} {files.length === 1 ? "file" : "files"}
@@ -210,7 +209,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                 <span className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/10" />
                 {hero!.kind === "video" && (
                   <span className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex size-16 items-center justify-center rounded-full bg-room-accent text-white shadow-[0_0_40px_var(--room-accent)]">
+                    <span className="flex size-16 items-center justify-center rounded-full bg-room-accent text-room-accent-fg shadow-[0_0_40px_var(--room-accent)]">
                       <Play className="ml-1 size-7 fill-current" />
                     </span>
                   </span>

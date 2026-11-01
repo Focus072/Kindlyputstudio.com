@@ -17,10 +17,22 @@ export type ThemePreset = {
 };
 
 export const themes = {
+  studio: {
+    id: "studio",
+    label: "Studio (KPS)",
+    description: "Kindly Put Studio ink with a cool steel glow. The house style.",
+    background: "#0F181D",
+    surface: "#1D2B32",
+    foreground: "#E1E2E5",
+    muted: "#8FA0A8",
+    border: "rgba(207,216,216,0.10)",
+    accent: "#B6C3C8",
+    glow: 0.4,
+  },
   midnight: {
     id: "midnight",
     label: "Midnight glow",
-    description: "Deep navy room with a cool light glow from the left.",
+    description: "Deep navy room with a bright blue glow from the left.",
     background: "#070B16",
     surface: "#0E1424",
     foreground: "#F3F5FA",
@@ -44,17 +56,33 @@ export const themes = {
 } satisfies Record<string, ThemePreset>;
 
 export type ThemeId = keyof typeof themes;
+export const DEFAULT_THEME: ThemeId = "studio";
 
 export const themeList: ThemePreset[] = Object.values(themes);
 
 export function getTheme(id: string | null | undefined): ThemePreset {
-  return (themes as Record<string, ThemePreset>)[id ?? ""] ?? themes.midnight;
+  return (themes as Record<string, ThemePreset>)[id ?? ""] ?? themes[DEFAULT_THEME];
+}
+
+export function isHex(v: string | null | undefined): v is string {
+  return !!v && /^#[0-9a-fA-F]{6}$/.test(v);
+}
+
+/** Dark text on light accents (like KPS steel), white text on strong ones. */
+export function readableOn(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.32 ? "#1D2B32" : "#FFFFFF";
 }
 
 /** CSS variables for a room's root element. */
 export function themeVars(preset: string, accentOverride?: string | null) {
   const t = getTheme(preset);
-  const accent = isHex(accentOverride) ? accentOverride! : t.accent;
+  const accent = isHex(accentOverride) ? accentOverride : t.accent;
   return {
     "--room-bg": t.background,
     "--room-surface": t.surface,
@@ -62,10 +90,7 @@ export function themeVars(preset: string, accentOverride?: string | null) {
     "--room-muted": t.muted,
     "--room-border": t.border,
     "--room-accent": accent,
+    "--room-accent-fg": readableOn(accent),
     "--room-glow": String(t.glow),
   } as React.CSSProperties;
-}
-
-export function isHex(v: string | null | undefined): v is string {
-  return !!v && /^#[0-9a-fA-F]{6}$/.test(v);
 }

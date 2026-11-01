@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { brand } from "@/config/brand";
-import { getTheme, themeList } from "@/config/themes";
+import { DEFAULT_THEME, getTheme, themeList } from "@/config/themes";
 import type { RoomRow } from "@/lib/types";
 
 type State = { error?: string; ok?: boolean } | undefined;
@@ -18,7 +18,7 @@ const field =
 
 export function RoomForm({ action, room, submitLabel }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
-  const [preset, setPreset] = useState(room?.theme_preset ?? "midnight");
+  const [preset, setPreset] = useState(room?.theme_preset ?? DEFAULT_THEME);
   const [accent, setAccent] = useState(room?.accent_color ?? getTheme(preset).accent);
 
   return (
@@ -54,7 +54,7 @@ export function RoomForm({ action, room, submitLabel }: Props) {
             <label
               key={t.id}
               className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 ${
-                preset === t.id ? "border-slate-900 ring-2 ring-slate-900/10" : "border-slate-200"
+                preset === t.id ? "border-ink ring-2 ring-ink/10" : "border-slate-200"
               }`}
             >
               <input
@@ -78,7 +78,7 @@ export function RoomForm({ action, room, submitLabel }: Props) {
                 />
               </span>
               <span>
-                <span className="block text-sm font-bold text-slate-900">{t.label}</span>
+                <span className="block text-sm font-bold text-ink">{t.label}</span>
                 <span className="block text-xs text-slate-500">{t.description}</span>
               </span>
             </label>
@@ -112,7 +112,7 @@ export function RoomForm({ action, room, submitLabel }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
+        className="rounded-full bg-ink px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : submitLabel}
       </button>

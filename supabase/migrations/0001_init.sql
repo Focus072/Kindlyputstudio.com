@@ -9,9 +9,9 @@ create table if not exists public.rooms (
   slug          text not null unique,
   title         text not null,
   client_name   text not null,
-  delivered_by  text not null default 'Kindly Put',
+  delivered_by  text not null default 'Kindly Put Studio',
   hero_file_id  uuid,
-  theme_preset  text not null default 'midnight',
+  theme_preset  text not null default 'studio',
   accent_color  text,
   status        text not null default 'live' check (status in ('draft', 'live', 'archived')),
   expires_at    timestamptz,
@@ -75,10 +75,10 @@ create index if not exists activity_room_idx on public.activity(room_id, created
 -- Brand settings (one row, edited from the admin in Phase 2) ---------------
 create table if not exists public.settings (
   id            int primary key default 1 check (id = 1),
-  agency_name   text not null default 'Kindly Put',
+  agency_name   text not null default 'Kindly Put Studio',
   logo_path     text,
   brand_colors  jsonb not null default '{}'::jsonb,
-  default_theme text not null default 'midnight',
+  default_theme text not null default 'studio',
   updated_at    timestamptz not null default now()
 );
 insert into public.settings (id) values (1) on conflict do nothing;

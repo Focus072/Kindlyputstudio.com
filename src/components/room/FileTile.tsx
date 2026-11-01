@@ -82,7 +82,7 @@ export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
 
         {isVideo && !playing && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-room-accent text-white shadow-[0_0_30px_var(--room-accent)] transition-transform duration-300 group-hover:scale-110">
+            <span className="flex size-14 items-center justify-center rounded-full bg-room-accent text-room-accent-fg shadow-[0_0_30px_var(--room-accent)] transition-transform duration-300 group-hover:scale-110">
               <Play className="ml-0.5 size-6 fill-current" />
             </span>
           </div>

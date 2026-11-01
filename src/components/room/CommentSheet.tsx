@@ -135,7 +135,7 @@ export function CommentSheet({ file, name, deliveredBy, onClose, onSend }: Props
                 type="submit"
                 disabled={!body.trim() || sending}
                 aria-label="Send comment"
-                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-room-accent text-white transition-opacity disabled:opacity-40"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-room-accent text-room-accent-fg transition-opacity disabled:opacity-40"
               >
                 <Send className="size-4" />
               </button>

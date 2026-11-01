@@ -1,28 +1,38 @@
 /**
- * Kindly Put brand settings.
+ * Kindly Put Studio brand settings (from the KPS Brand System 01 kit).
  *
- * When your logo and brand colors are ready:
- *   1. Drop the logo file in /public/brand/ (SVG or PNG works best).
- *   2. Set `logo` below to its path, for example "/brand/kindly-put-logo.svg".
- *   3. Swap the hex values in `colors`.
- * Every room and admin page picks the change up automatically.
+ * To change the logo, replace the files in /public/brand/ (keep the names) or
+ * point the paths below at new files. Colors and fonts update everywhere.
  */
 export const brand = {
-  name: "Kindly Put",
-  legalName: "Kindly Put Agency",
+  name: "Kindly Put Studio",
+  shortName: "KPS",
+  legalName: "Kindly Put Studio",
+  tagline: "Kindly put. Boldly seen.",
   city: "Bakersfield, CA",
-  deliveredBy: "Kindly Put",
-  /** Path under /public, or null to show the wordmark text instead. */
-  logo: null as string | null,
+  deliveredBy: "Kindly Put Studio",
   /** Shown as the small tag in the top right corner of every room. */
-  poweredByLabel: "Kindly Put Rooms",
-  website: "https://kindlyput.com",
+  poweredByLabel: "Kindly Put Studio",
+  website: "https://kindlyputstudio.com",
+  logo: {
+    /** Full logo (camera mark + wordmark) for light backgrounds. */
+    full: "/brand/kps-logo-ink.png",
+    /** Full logo for dark backgrounds. */
+    fullOnDark: "/brand/kps-logo-white.png",
+    /** Camera mark only, for small spaces. */
+    mark: "/brand/kps-mark-ink.png",
+    markOnDark: "/brand/kps-mark-white.png",
+  },
   colors: {
-    /** Main brand accent: buttons, links, focus rings in the admin. */
-    primary: "#5B8CFF",
-    /** Approve state across all rooms. */
+    ink: "#1D2B32", // contrast
+    slate: "#4F6671", // primary
+    steel: "#B6C3C8", // accent
+    mist: "#CFD8D8", // secondary
+    cloud: "#E1E2E5", // light backgrounds
+    /** Main accent in the admin: buttons, links, focus rings. */
+    primary: "#4F6671",
+    /** Approve and decline states across all rooms. */
     approve: "#22C55E",
-    /** Decline / changes requested state across all rooms. */
     decline: "#F97362",
   },
 } as const;

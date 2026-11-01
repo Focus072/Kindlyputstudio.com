@@ -52,7 +52,7 @@ export function NamePrompt({ open, deliveredBy, onSubmit, onClose }: Props) {
             <button
               type="submit"
               disabled={!value.trim()}
-              className="mt-4 w-full rounded-full bg-room-accent px-5 py-3 font-bold text-white transition-opacity disabled:opacity-40"
+              className="mt-4 w-full rounded-full bg-room-accent px-5 py-3 font-bold text-room-accent-fg transition-opacity disabled:opacity-40"
             >
               Continue
             </button>

@@ -1,15 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Courier_Prime, Manrope } from "next/font/google";
+import { Barlow_Condensed, Courier_Prime, Inter } from "next/font/google";
 import { brand } from "@/config/brand";
 import "./globals.css";
 
-const display = Anton({ variable: "--font-display", weight: "400", subsets: ["latin"] });
+// KPS brand type: Barlow Condensed ExtraBold for headlines, Inter for body.
+const display = Barlow_Condensed({ variable: "--font-display", weight: "800", subsets: ["latin"] });
 const typewriter = Courier_Prime({
   variable: "--font-typewriter",
   weight: ["400", "700"],
   subsets: ["latin"],
 });
-const sans = Manrope({ variable: "--font-sans", subsets: ["latin"] });
+const sans = Inter({ variable: "--font-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: { default: brand.name, template: `%s · ${brand.name}` },
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#070B16",
+  themeColor: "#1D2B32",
   width: "device-width",
   initialScale: 1,
 };

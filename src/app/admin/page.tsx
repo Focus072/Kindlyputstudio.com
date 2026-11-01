@@ -14,11 +14,11 @@ export default async function AdminHome() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-typewriter text-sm text-slate-500">Delivery rooms</p>
-          <h1 className="font-display text-4xl uppercase tracking-wide text-slate-900 sm:text-5xl">Your rooms</h1>
+          <h1 className="font-display text-4xl uppercase text-ink sm:text-5xl">Your rooms</h1>
         </div>
         <Link
           href="/admin/rooms/new"
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white"
+          className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-bold text-white"
         >
           <Plus className="size-4" /> New room
         </Link>
@@ -26,7 +26,7 @@ export default async function AdminHome() {
 
       {rooms.length === 0 ? (
         <div className="mt-10 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">
-          <p className="font-bold text-slate-900">No rooms yet</p>
+          <p className="font-bold text-ink">No rooms yet</p>
           <p className="mt-1 text-sm text-slate-500">Create your first room, upload the shoot, and send the link.</p>
         </div>
       ) : (
@@ -70,7 +70,7 @@ export default async function AdminHome() {
                     href={`/r/${room.slug}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full px-3 py-2 text-sm font-semibold text-slate-500 hover:text-slate-900"
+                    className="rounded-full px-3 py-2 text-sm font-semibold text-slate-500 hover:text-ink"
                   >
                     Open
                   </a>
