@@ -2,6 +2,7 @@
 
 import { Check, Link2 } from "lucide-react";
 import { useState } from "react";
+import { brand } from "@/config/brand";
 
 export function CopyLink({ path, label = "Copy link", className = "" }: { path: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -11,7 +12,9 @@ export function CopyLink({ path, label = "Copy link", className = "" }: { path: 
       onClick={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const url = `${window.location.origin}${path}`;
+        // Always hand out the real domain, even when the admin is open on a preview URL.
+        const origin = window.location.hostname === "localhost" ? window.location.origin : brand.siteUrl;
+        const url = `${origin}${path}`;
         try {
           await navigator.clipboard.writeText(url);
         } catch {

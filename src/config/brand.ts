@@ -6,6 +6,8 @@
  */
 export const brand = {
   name: "Kindly Put Studio",
+  /** Public address used for copied client links and share previews. */
+  siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.kindlyputstudio.com").replace(/\/$/, ""),
   shortName: "KPS",
   legalName: "Kindly Put Studio",
   tagline: "Kindly put. Boldly seen.",

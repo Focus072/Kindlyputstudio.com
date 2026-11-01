@@ -13,6 +13,7 @@ const typewriter = Courier_Prime({
 const sans = Inter({ variable: "--font-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(brand.siteUrl),
   title: { default: brand.name, template: `%s · ${brand.name}` },
   description: `Photo and video delivery rooms by ${brand.legalName}, ${brand.city}.`,
   applicationName: brand.name,
