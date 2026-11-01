@@ -11,6 +11,8 @@ export type RoomRow = {
   accent_color: string | null;
   status: "draft" | "live" | "archived";
   expires_at: string | null;
+  /** Feature this room in the public "Recent work" section of the home page. */
+  showcase: boolean;
   created_at: string;
   updated_at: string;
 };

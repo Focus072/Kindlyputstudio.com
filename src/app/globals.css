@@ -52,3 +52,15 @@ body:has(.room-root) {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Home page work strip: slow, endless scroll. */
+@keyframes kp-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.kp-marquee {
+  animation: kp-marquee 60s linear infinite;
+}
+.kp-marquee:hover {
+  animation-play-state: paused;
+}

@@ -107,6 +107,16 @@ export function RoomForm({ action, room, submitLabel }: Props) {
         </label>
       )}
 
+      {room && (
+        <label className="flex items-start gap-3 text-sm text-slate-700">
+          <input type="checkbox" name="showcase" defaultChecked={room.showcase} className="mt-0.5 size-5 accent-[#1d2b32]" />
+          <span>
+            <span className="font-semibold text-ink">Show in Recent work on the home page</span>
+            <span className="block text-slate-500">Uses this room&rsquo;s photos as a portfolio piece. The room itself stays private.</span>
+          </span>
+        </label>
+      )}
+
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.ok && <p className="text-sm text-approve">Saved.</p>}
       <button

@@ -33,6 +33,7 @@ function roomFields(formData: FormData) {
     accent,
     expiresAt,
     status: ["draft", "live", "archived"].includes(status) ? status : "live",
+    showcase: formData.get("showcase") === "on",
   };
 }
 
@@ -82,12 +83,14 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
       accent_color: f.accent,
       expires_at: f.expiresAt,
       status: f.status,
+      showcase: f.showcase,
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId);
   if (error) return { error: error.message };
   revalidatePath(`/admin/rooms/${roomId}`);
   revalidatePath("/admin");
+  revalidatePath("/");
   return { ok: true };
 }
 
