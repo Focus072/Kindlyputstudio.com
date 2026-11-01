@@ -1,17 +1,16 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Play } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Download, Play, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { addComment, recordView, setReview } from "@/app/r/[slug]/actions";
 import { themeVars } from "@/config/themes";
 import type { RoomFile, RoomStats } from "@/lib/types";
-import { getViewerId, useViewerName } from "@/lib/viewer";
 import { VerifiedDot } from "@/components/ui/VerifiedDot";
 import { CommentSheet } from "./CommentSheet";
 import { FileTile } from "./FileTile";
 import { Lightbox } from "./Lightbox";
-import { NamePrompt } from "./NamePrompt";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { RoomBackdrop } from "./RoomBackdrop";
 import { StatsLine } from "./StatsLine";
 
@@ -30,21 +29,28 @@ export type RoomViewProps = {
   brand: { name: string; mark: string; poweredByLabel: string };
   /** Admin preview: shows the room exactly as the client sees it, without tracking. */
   preview?: boolean;
+  /** Signed-in client, or null when nobody is signed in. */
+  viewer: { name: string; avatarUrl: string | null } | null;
+  /** When set, the room is locked behind the create-account popup. */
+  gate?: {
+    supabaseUrl: string;
+    supabaseKey: string;
+    fileCount: number;
+    teaserUrl: string | null;
+    authError?: boolean;
+  };
 };
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview }: RoomViewProps) {
+export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, viewer, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
-  const [name, setName] = useViewerName();
-  const [askName, setAskName] = useState(false);
-  const pendingAction = useRef<((name: string) => void) | null>(null);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !viewer) return;
     const key = `kp:viewed:${room.slug}`;
     try {
       if (sessionStorage.getItem(key)) return;
@@ -52,8 +58,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     } catch {
       /* ignore */
     }
-    recordView(room.slug, getViewerId()).catch(() => {});
-  }, [room.slug, preview]);
+    recordView(room.slug).catch(() => {});
+  }, [room.slug, preview, viewer]);
 
   useEffect(() => {
     if (!toast) return;
@@ -75,58 +81,38 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
   const hero = files.find((f) => f.id === heroId) ?? files.find((f) => f.kind === "image") ?? files[0];
   const sheetFile = files.find((f) => f.id === sheetFileId) ?? null;
 
-  const withName = useCallback(
-    (action: (name: string) => void) => {
-      if (name) return action(name);
-      pendingAction.current = action;
-      setAskName(true);
-    },
-    [name],
-  );
-
   function patchFile(id: string, patch: Partial<RoomFile>) {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
-  function review(file: RoomFile, status: "approved" | "changes") {
-    withName(async (who) => {
-      const next = file.status === status ? "pending" : status;
-      const before = { status: file.status, reviewedBy: file.reviewedBy };
-      patchFile(file.id, { status: next, reviewedBy: next === "pending" ? null : who });
-      const res = await setReview({
-        slug: room.slug,
-        fileId: file.id,
-        status: next,
-        name: who,
-        viewerId: getViewerId(),
-      }).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
-      if (!res.ok) {
-        patchFile(file.id, before);
-        setToast(res.error);
-      }
-    });
+  async function review(file: RoomFile, status: "approved" | "changes") {
+    const next = file.status === status ? "pending" : status;
+    const before = { status: file.status, reviewedBy: file.reviewedBy };
+    patchFile(file.id, { status: next, reviewedBy: next === "pending" ? null : viewer?.name ?? null });
+    const res = await setReview({ slug: room.slug, fileId: file.id, status: next }).catch(() => ({
+      ok: false as const,
+      error: "Connection lost. Please try again.",
+    }));
+    if (!res.ok) {
+      patchFile(file.id, before);
+      setToast(res.error);
+    }
   }
 
   function openComments(file: RoomFile) {
-    withName(() => setSheetFileId(file.id));
+    setSheetFileId(file.id);
   }
 
   async function sendComment(body: string): Promise<boolean> {
-    if (!sheetFile || !name) return false;
-    const res = await addComment({
-      slug: room.slug,
-      fileId: sheetFile.id,
-      name,
-      body,
-      viewerId: getViewerId(),
-    }).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
+    if (!sheetFile) return false;
+    const res = await addComment({ slug: room.slug, fileId: sheetFile.id, body }).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
     if (!res.ok || !res.data) {
       setToast(res.ok ? "Could not post." : res.error);
       return false;
     }
-    const { id, createdAt } = res.data;
+    const { id, createdAt, author, fromAgency } = res.data;
     patchFile(sheetFile.id, {
-      comments: [...sheetFile.comments, { id, author: name, body, fromAgency: false, createdAt }],
+      comments: [...sheetFile.comments, { id, author, body, fromAgency, createdAt }],
     });
     return true;
   }
@@ -148,10 +134,28 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             {brand.name}
           </span>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-room-border bg-white/5 px-3 py-1.5 font-typewriter text-[11px] text-room-muted backdrop-blur-md">
-          <span className="size-1.5 rounded-full bg-room-accent" />
-          Powered by <span className="text-room-fg">{brand.poweredByLabel}</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="hidden items-center gap-2 rounded-full border border-room-border bg-white/5 px-3 py-1.5 font-typewriter text-[11px] text-room-muted backdrop-blur-md sm:inline-flex">
+            <span className="size-1.5 rounded-full bg-room-accent" />
+            Powered by <span className="text-room-fg">{brand.poweredByLabel}</span>
+          </span>
+          {viewer && (
+            <a
+              href="/account"
+              title="My rooms"
+              className="inline-flex items-center gap-2 rounded-full border border-room-border bg-white/5 py-1 pl-1 pr-3 text-xs font-semibold backdrop-blur-md hover:bg-white/10"
+            >
+              {viewer.avatarUrl ? (
+                <img src={viewer.avatarUrl} alt="" referrerPolicy="no-referrer" className="size-6 rounded-full" />
+              ) : (
+                <span className="flex size-6 items-center justify-center rounded-full bg-room-accent text-room-accent-fg">
+                  <UserRound className="size-3.5" />
+                </span>
+              )}
+              My rooms
+            </a>
+          )}
+        </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
@@ -273,27 +277,33 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
       <CommentSheet
         file={sheetFile}
-        name={name}
+        name={viewer?.name ?? room.deliveredBy}
         deliveredBy={room.deliveredBy}
         onClose={() => setSheetFileId(null)}
         onSend={sendComment}
       />
 
-      <NamePrompt
-        open={askName}
-        deliveredBy={room.deliveredBy}
-        onClose={() => {
-          setAskName(false);
-          pendingAction.current = null;
-        }}
-        onSubmit={(value) => {
-          setName(value);
-          setAskName(false);
-          const action = pendingAction.current;
-          pendingAction.current = null;
-          action?.(value);
-        }}
-      />
+      {gate && (
+        <>
+          {gate.teaserUrl && (
+            <img
+              src={gate.teaserUrl}
+              alt=""
+              aria-hidden
+              className="pointer-events-none fixed inset-0 -z-[5] size-full scale-110 object-cover opacity-25 blur-2xl"
+            />
+          )}
+          <AuthModal
+            supabaseUrl={gate.supabaseUrl}
+            supabaseKey={gate.supabaseKey}
+            next={`/r/${room.slug}`}
+            brandMark={brand.mark}
+            heading="Create your account"
+            subheading={`${room.deliveredBy} has ${gate.fileCount} ${gate.fileCount === 1 ? "file" : "files"} ready for ${room.clientName}. Create your free account to view, approve, and download them. One account opens all your rooms.`}
+            initialError={gate.authError}
+          />
+        </>
+      )}
 
       <AnimatePresence>
         {toast && (

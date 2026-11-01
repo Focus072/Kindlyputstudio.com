@@ -8,7 +8,10 @@ import { DeleteRoomButton } from "@/components/admin/DeleteRoomButton";
 import { RoomForm } from "@/components/admin/RoomForm";
 import { Uploader } from "@/components/admin/Uploader";
 import { requireAdmin } from "@/lib/auth";
+import { clientsForRoom } from "@/lib/clients-data";
 import { getRoomById, loadRoomBundle } from "@/lib/data";
+import { timeAgo } from "@/lib/format";
+import { ClientAvatar } from "@/components/admin/ClientAvatar";
 
 export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/[id]">) {
   await requireAdmin();
@@ -16,7 +19,7 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const room = await getRoomById(id);
   if (!room) notFound();
-  const { files, stats, hero } = await loadRoomBundle(room);
+  const [{ files, stats, hero }, roomClients] = await Promise.all([loadRoomBundle(room), clientsForRoom(room.id)]);
 
   return (
     <main className="space-y-10">
@@ -47,6 +50,28 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
           <div><dt className="inline">Pending </dt><dd className="inline font-bold text-ink">{stats.pending}</dd></div>
         </dl>
       </div>
+
+      <section>
+        <h2 className="mb-3 text-lg font-bold text-ink">Clients in this room ({roomClients.length})</h2>
+        {roomClients.length === 0 ? (
+          <p className="text-sm text-slate-500">Nobody has opened this room yet. Send the client link to get started.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {roomClients.map(({ client, lastOpened }) => (
+              <li key={client!.id}>
+                <Link
+                  href={`/admin/clients/${client!.id}`}
+                  className="flex items-center gap-2 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-sm shadow-sm ring-1 ring-slate-200 hover:ring-slate-300"
+                >
+                  <ClientAvatar name={client!.full_name ?? client!.email ?? "?"} url={client!.avatar_url} size="size-7" />
+                  <span className="font-semibold text-ink">{client!.full_name ?? client!.email}</span>
+                  <span className="text-xs text-slate-400">{timeAgo(lastOpened)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">Upload files</h2>

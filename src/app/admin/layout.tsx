@@ -17,10 +17,15 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             <span className="hidden text-[11px] font-semibold uppercase tracking-[0.28em] text-ink sm:inline">
               {brand.name}
             </span>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-typewriter text-[11px] text-slate-500">
-              Rooms
-            </span>
           </Link>
+          <nav className="flex items-center gap-1 text-sm font-semibold">
+            <Link href="/admin" className="rounded-full px-3 py-1.5 text-slate-600 hover:bg-slate-100 hover:text-ink">
+              Rooms
+            </Link>
+            <Link href="/admin/clients" className="rounded-full px-3 py-1.5 text-slate-600 hover:bg-slate-100 hover:text-ink">
+              Clients
+            </Link>
+          </nav>
           <form action={logout}>
             <button className="text-sm text-slate-500 hover:text-ink">Sign out</button>
           </form>

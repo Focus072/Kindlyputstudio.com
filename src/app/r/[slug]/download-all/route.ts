@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { downloadZip } from "client-zip";
 import { isAdmin } from "@/lib/auth";
+import { getClientUser } from "@/lib/client-auth";
 import { getFiles, getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
@@ -17,6 +18,9 @@ export async function GET(
   const { slug } = await ctx.params;
   const room = await getRoomBySlug(slug);
   if (!room || !isRoomOpen(room)) return new Response("Not found", { status: 404 });
+  const client = await getClientUser();
+  const admin = await isAdmin();
+  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
 
   const files = await getFiles(room.id);
   if (files.length === 0) return new Response("No files yet", { status: 404 });
@@ -27,8 +31,8 @@ export async function GET(
     .createSignedUrls(files.map((f) => f.original_path), 60 * 30);
   if (error || !signed) return new Response("Could not prepare download", { status: 500 });
 
-  if (!(await isAdmin())) {
-    await db.from("activity").insert({ room_id: room.id, type: "download" });
+  if (client) {
+    await db.from("activity").insert({ room_id: room.id, type: "download", client_id: client.id, actor_name: client.name });
   }
 
   const usedNames = new Set<string>();

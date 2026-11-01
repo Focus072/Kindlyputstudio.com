@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { isAdmin } from "@/lib/auth";
+import { getClientUser } from "@/lib/client-auth";
 import { getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
@@ -12,6 +13,9 @@ export async function GET(
   const { slug, fileId } = await ctx.params;
   const room = await getRoomBySlug(slug);
   if (!room || !isRoomOpen(room)) return new Response("Not found", { status: 404 });
+  const client = await getClientUser();
+  const admin = await isAdmin();
+  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
 
   const db = supabaseAdmin();
   const { data: file } = await db
@@ -27,8 +31,8 @@ export async function GET(
     .createSignedUrl(file.original_path, 120, { download: file.file_name });
   if (error || !data) return new Response("Could not create download", { status: 500 });
 
-  if (!(await isAdmin())) {
-    await db.from("activity").insert({ room_id: room.id, file_id: file.id, type: "download" });
+  if (client) {
+    await db.from("activity").insert({ room_id: room.id, file_id: file.id, type: "download", client_id: client.id, actor_name: client.name });
   }
   return Response.redirect(data.signedUrl, 302);
 }
