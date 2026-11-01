@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   applicationName: brand.name,
   appleWebApp: { capable: true, title: "KPS", statusBarStyle: "black" },
   formatDetection: { telephone: false },
+  openGraph: { siteName: brand.name, locale: "en_US", type: "website" },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

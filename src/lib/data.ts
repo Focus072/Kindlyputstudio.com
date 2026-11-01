@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET, previewUrl } from "@/lib/storage";
 import type {
@@ -19,7 +20,8 @@ export function isRoomOpen(room: RoomRow): boolean {
   return room.status === "live" && !isRoomExpired(room);
 }
 
-export async function getRoomBySlug(slug: string): Promise<RoomRow | null> {
+// Wrapped in cache() so the page and its share-preview metadata share one query per request.
+export const getRoomBySlug = cache(async (slug: string): Promise<RoomRow | null> => {
   const { data, error } = await supabaseAdmin()
     .from("rooms")
     .select("*")
@@ -27,7 +29,7 @@ export async function getRoomBySlug(slug: string): Promise<RoomRow | null> {
     .maybeSingle();
   if (error) throw error;
   return data as RoomRow | null;
-}
+});
 
 export async function getRoomById(id: string): Promise<RoomRow | null> {
   const { data, error } = await supabaseAdmin()
@@ -39,7 +41,7 @@ export async function getRoomById(id: string): Promise<RoomRow | null> {
   return data as RoomRow | null;
 }
 
-export async function getFiles(roomId: string): Promise<FileRow[]> {
+export const getFiles = cache(async (roomId: string): Promise<FileRow[]> => {
   const { data, error } = await supabaseAdmin()
     .from("files")
     .select("*")
@@ -48,7 +50,7 @@ export async function getFiles(roomId: string): Promise<FileRow[]> {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as FileRow[];
-}
+});
 
 export async function getComments(roomId: string): Promise<CommentRow[]> {
   const { data, error } = await supabaseAdmin()

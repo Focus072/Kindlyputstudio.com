@@ -1,12 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { safeNext } from "@/lib/safe-next";
 import { supabaseForRequest } from "@/lib/supabase/server";
 
-function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/account";
-}
 
-/** Finishes Google sign-in and email confirmation, then returns to the room. */
+/** Finishes Google sign-in, email confirmation, and password reset links, then returns to the room. */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const next = safeNext(searchParams.get("next"));
@@ -24,6 +22,11 @@ export async function GET(request: NextRequest) {
       type: type as "signup" | "email" | "recovery" | "magiclink" | "invite",
     });
     if (!error) return NextResponse.redirect(`${origin}${next}`);
+  }
+  // A password reset link that could not be used (expired, or opened in another
+  // browser than the one that asked for it): start over from the sign-in screen.
+  if (searchParams.get("flow") === "recovery" || type === "recovery") {
+    return NextResponse.redirect(`${origin}/account?auth_error=reset`);
   }
   const back = new URL(next, origin);
   // Email links are often opened in a different browser or app (Gmail, Messages)

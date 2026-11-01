@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { brand } from "@/config/brand";
 import { themeVars } from "@/config/themes";
 import type { RoomRow } from "@/lib/types";
@@ -17,6 +18,12 @@ export function RoomClosed({ room, expired }: { room: RoomRow; expired: boolean 
             : "This room is not open right now."}{" "}
           Reach out to {brand.name} and we will send you a fresh link.
         </p>
+        <Link
+          href="/#start"
+          className="mt-8 inline-flex rounded-full border border-current/20 px-5 py-2.5 text-sm font-semibold hover:opacity-80"
+        >
+          Contact {brand.name}
+        </Link>
       </div>
     </div>
   );

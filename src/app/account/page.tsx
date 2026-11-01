@@ -57,7 +57,10 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
           brandMark={brand.logo.markOnDark}
           heading="Your rooms"
           subheading={`Create an account or sign in to see every room ${brand.name} has delivered to you.`}
-          initialError={sp.auth_error === "confirmed" ? "confirmed" : sp.auth_error === "1" ? "1" : null}
+          initialError={
+            sp.auth_error === "confirmed" || sp.auth_error === "1" || sp.auth_error === "reset" ? sp.auth_error : null
+          }
+          homeHref="/"
         />
       </main>
     );
@@ -69,7 +72,9 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
   return (
     <main className="min-h-dvh bg-ink text-cloud">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8">
-        <img src={brand.logo.markOnDark} alt={brand.name} className="h-9 w-auto" />
+        <Link href="/" aria-label={`${brand.name} home`}>
+          <img src={brand.logo.markOnDark} alt={brand.name} className="h-9 w-auto" />
+        </Link>
         <form action="/auth/signout" method="post">
           <button className="text-sm text-mist/70 hover:text-white">Sign out</button>
         </form>
@@ -101,6 +106,8 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
                         <img
                           src={cover}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
                       )}
