@@ -75,7 +75,7 @@ export default async function Home() {
               <span className="relative">Boldly seen.</span>
             </span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600 sm:text-xl">
+          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-slate-600 sm:text-xl">
             We shoot photo and video for Bakersfield businesses, then hand it over in a private room with your name on it.
             Approve, comment, and download in one place. No Drive folders. No lost emails.
           </p>
@@ -119,7 +119,7 @@ export default async function Home() {
             <h2 className="mt-2 font-display text-5xl uppercase leading-[0.92] sm:text-7xl">
               Your own <span className="text-slate-brand">delivery room</span>
             </h2>
-            <p className="mt-5 text-lg text-slate-600">
+            <p className="mt-5 text-pretty text-lg text-slate-600">
               When your edits are ready, you get one clean link. It opens a room built for your shoot: your name, your
               photos, and a simple way to sign off.
             </p>
@@ -130,7 +130,7 @@ export default async function Home() {
                 <span className="flex size-10 items-center justify-center rounded-2xl bg-ink text-white">
                   <Icon className="size-5" />
                 </span>
-                <p className="mt-4 font-semibold leading-snug">{text}</p>
+                <p className="mt-4 text-pretty font-semibold leading-snug">{text}</p>
               </li>
             ))}
           </ul>
@@ -147,7 +147,7 @@ export default async function Home() {
               <li key={title} className="rounded-[28px] bg-[#F4F5F6] p-6 ring-1 ring-black/5 sm:p-8">
                 <Icon className="size-7 text-slate-brand" />
                 <h3 className="mt-6 font-display text-3xl uppercase">{title}</h3>
-                <p className="mt-2 text-slate-600">{body}</p>
+                <p className="mt-2 text-pretty text-slate-600">{body}</p>
               </li>
             ))}
           </ul>
@@ -157,7 +157,7 @@ export default async function Home() {
               <li key={s.n}>
                 <span className="font-typewriter text-sm text-slate-400">{s.n}</span>
                 <h3 className="mt-1 font-display text-3xl uppercase">{s.title}</h3>
-                <p className="mt-1 text-slate-600">{s.body}</p>
+                <p className="mt-1 text-pretty text-slate-600">{s.body}</p>
               </li>
             ))}
           </ol>
@@ -187,7 +187,7 @@ export default async function Home() {
             <h2 className="mt-6 font-display text-5xl uppercase leading-[0.92] sm:text-7xl">
               Ready to be <span className="text-steel">boldly seen?</span>
             </h2>
-            <p className="mt-5 max-w-md text-lg text-mist/80">
+            <p className="mt-5 max-w-md text-pretty text-lg text-mist/80">
               Tell us what you have in mind. We&rsquo;ll reply within one business day with ideas, timing, and a quote.
             </p>
             <p className="mt-8 font-typewriter text-sm text-mist/60">
@@ -200,16 +200,20 @@ export default async function Home() {
       </section>
 
       <footer className="bg-ink pb-[calc(2rem+env(safe-area-inset-bottom))] text-mist/60">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 border-t border-white/10 px-5 pt-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p className="font-typewriter text-xs">
-            © {new Date().getFullYear()} {brand.legalName} · {brand.city} · Kindly put. Boldly seen.
-          </p>
-          <nav className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
-            <Link href="/account" className="hover:text-white">Client login</Link>
-            <Link href="/login" className="hover:text-white">Studio</Link>
-          </nav>
+        <div className="mx-auto max-w-6xl px-5 sm:px-8">
+          <div className="flex flex-col gap-4 border-t border-white/10 pt-8 text-sm lg:flex-row lg:items-center lg:justify-between">
+            <p className="font-typewriter text-xs leading-relaxed">
+              <span className="whitespace-nowrap">© {new Date().getFullYear()} {brand.legalName}</span>{" "}
+              <span className="whitespace-nowrap">· {brand.city}</span>{" "}
+              <span className="whitespace-nowrap">· Kindly put. Boldly seen.</span>
+            </p>
+            <nav className="-mx-2 grid grid-cols-2 sm:flex sm:flex-wrap sm:gap-x-1">
+              <Link href="/privacy" className="rounded-lg px-2 py-2 hover:text-white">Privacy Policy</Link>
+              <Link href="/terms" className="rounded-lg px-2 py-2 hover:text-white">Terms of Service</Link>
+              <Link href="/account" className="rounded-lg px-2 py-2 hover:text-white">Client login</Link>
+              <Link href="/login" className="rounded-lg px-2 py-2 hover:text-white">Studio</Link>
+            </nav>
+          </div>
         </div>
       </footer>
     </main>

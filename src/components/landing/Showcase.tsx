@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { ArrowUpRight, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ShowcaseShoot } from "@/lib/showcase";
@@ -21,7 +21,7 @@ export function Showcase({ shoots }: { shoots: ShowcaseShoot[] }) {
   }, [open]);
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <ul className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
         {shoots.map((s, i) => (
           <motion.li
@@ -48,7 +48,7 @@ export function Showcase({ shoots }: { shoots: ShowcaseShoot[] }) {
               </span>
               <span className="absolute inset-x-3 bottom-3 text-white sm:inset-x-5 sm:bottom-5">
                 <span className="block font-typewriter text-[10px] text-white/70 sm:text-xs">{s.photoCount} photos</span>
-                <span className="mt-0.5 block font-display text-2xl uppercase leading-none sm:text-4xl">{s.client}</span>
+                <span className="mt-0.5 block text-balance font-display text-2xl uppercase leading-none sm:text-4xl">{s.client}</span>
                 <span className="mt-1 line-clamp-1 block text-xs text-white/75 sm:text-sm">{s.label}</span>
               </span>
             </button>
@@ -92,6 +92,6 @@ export function Showcase({ shoots }: { shoots: ShowcaseShoot[] }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </MotionConfig>
   );
 }
