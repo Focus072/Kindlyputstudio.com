@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, MessageCircle, MoreHorizontal, Play, RotateCcw, Sta
 import { useState, useTransition } from "react";
 import { deleteFile, moveFile, replyToComment, resetReview, setHero } from "@/app/admin/actions";
 import type { RoomFile } from "@/lib/types";
+import { Lightbox } from "@/components/room/Lightbox";
 
 const statusStyle = {
   approved: "bg-approve text-white",
@@ -14,11 +15,12 @@ const statusStyle = {
 
 const statusLabel = { approved: "Approved", changes: "Changes", pending: "Pending" } as const;
 
-export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files: RoomFile[]; heroId: string | null }) {
+export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string; slug: string; files: RoomFile[]; heroId: string | null }) {
   const [pending, start] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [sheetId, setSheetId] = useState<string | null>(null);
+  const [viewIndex, setViewIndex] = useState<number | null>(null);
   const sheetIndex = files.findIndex((f) => f.id === sheetId);
   const sheetFile = sheetIndex >= 0 ? files[sheetIndex] : null;
 
@@ -43,7 +45,7 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
         const open = openId === f.id;
         return (
           <li key={f.id} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div className="relative aspect-[4/5] bg-ink" onClick={() => setSheetId(f.id)} role="button" tabIndex={-1}>
+            <button type="button" className="relative block aspect-[4/5] w-full cursor-zoom-in bg-ink" onClick={() => setViewIndex(i)} aria-label={`Open ${f.fileName}`}>
               {(f.thumbUrl ?? f.posterUrl) ? (
                 <img src={(f.thumbUrl ?? f.posterUrl)!} alt={f.fileName} loading="lazy" className="absolute inset-0 size-full object-cover" />
               ) : (
@@ -61,7 +63,7 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
                 {statusLabel[f.status]}
                 {f.reviewedBy ? ` · ${f.reviewedBy}` : ""}
               </span>
-            </div>
+            </button>
             {/* Phones: one tap opens a sheet with every action, labeled. */}
             <div className="flex items-center justify-between px-1.5 py-1 sm:hidden">
               <button className={`${btn} relative size-10`} aria-label="Comments" onClick={() => setSheetId(f.id)}>
@@ -140,6 +142,8 @@ export function AdminFileGrid({ roomId, files, heroId }: { roomId: string; files
         );
       })}
     </ul>
+
+    <Lightbox files={files} index={viewIndex} slug={slug} onIndex={setViewIndex} />
 
     <AnimatePresence>
       {sheetFile && (

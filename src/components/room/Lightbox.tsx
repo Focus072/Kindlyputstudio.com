@@ -11,9 +11,17 @@ type Props = {
   index: number | null;
   slug: string;
   onIndex: (i: number | null) => void;
-  onReview: (file: RoomFile, status: "approved" | "changes") => void;
-  onComment: (file: RoomFile) => void;
+  /** Leave both out for a read-only viewer (the studio admin). */
+  onReview?: (file: RoomFile, status: "approved" | "changes") => void;
+  onComment?: (file: RoomFile) => void;
 };
+
+const statusChip = {
+  approved: "bg-approve text-white",
+  changes: "bg-decline text-white",
+  pending: "bg-white/10 text-white/80",
+} as const;
+const statusText = { approved: "Approved", changes: "Changes requested", pending: "Pending review" } as const;
 
 export function Lightbox({ files, index, slug, onIndex, onReview, onComment }: Props) {
   const file = index === null ? null : files[index];
@@ -38,12 +46,12 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment }: P
     <AnimatePresence>
       {file && index !== null && (
         <motion.div
-          className="fixed inset-0 z-30 flex flex-col bg-black/95 text-white"
+          className="fixed inset-0 z-[35] flex flex-col bg-black/95 text-white"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="flex items-center justify-between gap-3 p-4">
+          <div className="flex items-center justify-between gap-3 p-4 pt-[calc(1rem+env(safe-area-inset-top))]">
             <p className="min-w-0 truncate font-typewriter text-xs text-white/70">
               {index + 1} / {files.length} · {file.fileName}
             </p>
@@ -128,14 +136,22 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment }: P
                 <ChevronLeft className="size-5" />
               </button>
             )}
-            <ReviewButtons
-              size="lg"
-              status={file.status}
-              commentCount={file.comments.length}
-              onDecline={() => onReview(file, "changes")}
-              onApprove={() => onReview(file, "approved")}
-              onComment={() => onComment(file)}
-            />
+            {onReview && onComment ? (
+              <ReviewButtons
+                size="lg"
+                status={file.status}
+                commentCount={file.comments.length}
+                onDecline={() => onReview(file, "changes")}
+                onApprove={() => onReview(file, "approved")}
+                onComment={() => onComment(file)}
+              />
+            ) : (
+              <span className={`rounded-full px-4 py-2 text-sm font-semibold ${statusChip[file.status]}`}>
+                {statusText[file.status]}
+                {file.reviewedBy && file.status !== "pending" ? ` · ${file.reviewedBy}` : ""}
+                {file.comments.length > 0 ? ` · ${file.comments.length} ${file.comments.length === 1 ? "note" : "notes"}` : ""}
+              </span>
+            )}
             {files.length > 1 && (
               <button
                 type="button"

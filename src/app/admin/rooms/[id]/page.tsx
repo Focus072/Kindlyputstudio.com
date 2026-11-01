@@ -85,7 +85,7 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
 
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">Files ({files.length})</h2>
-        <AdminFileGrid roomId={room.id} files={files} heroId={hero?.id ?? null} />
+        <AdminFileGrid roomId={room.id} slug={room.slug} files={files} heroId={hero?.id ?? null} />
       </section>
 
       <section>
