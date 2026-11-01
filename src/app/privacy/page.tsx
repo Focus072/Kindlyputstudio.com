@@ -9,6 +9,7 @@ export default function PrivacyPage() {
   const n = brand.legalName;
   return (
     <LegalPage
+      current="privacy"
       title="Privacy policy"
       intro={`${n} (“we”, “us”) is a photo and video studio in ${brand.city}. This policy explains what we collect when you use our client delivery rooms at ${brand.siteUrl.replace("https://", "")}, and how we use it.`}
     >

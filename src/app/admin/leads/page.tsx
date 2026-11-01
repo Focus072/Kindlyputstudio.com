@@ -48,28 +48,30 @@ export default async function LeadsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-lg font-bold text-ink">{l.name}</p>
-                  <p className="truncate text-sm text-slate-500">
-                    {[l.business, l.service].filter(Boolean).join(" · ") || "No details"} · {timeAgo(l.created_at)}
+                  <p className="text-sm text-slate-500">
+                    {[l.business, l.service].filter(Boolean).join(" · ") || "No details"}{" "}
+                    <span className="whitespace-nowrap">· {timeAgo(l.created_at)}</span>
                   </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase ${tone[l.status]}`}>{l.status}</span>
               </div>
               {l.message && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{l.message}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <a href={`mailto:${l.email}`} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-white">
-                  <Mail className="size-4" /> {l.email}
+                <a href={`mailto:${l.email}`} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-white">
+                  <Mail className="size-4 shrink-0" /> <span className="truncate">{l.email}</span>
                 </a>
                 {l.phone && (
                   <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700">
                     <Phone className="size-4" /> {l.phone}
                   </a>
                 )}
-                <form action={setLeadStatus} className="ml-auto flex gap-1">
+                <form action={setLeadStatus} className="flex w-full items-center gap-2 border-t border-slate-100 pt-3 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">
+                  <span className="mr-auto text-xs text-slate-400 sm:mr-0">Mark as</span>
                   <input type="hidden" name="id" value={l.id} />
                   {(["contacted", "won", "closed"] as const)
                     .filter((s) => s !== l.status)
                     .map((s) => (
-                      <button key={s} name="status" value={s} className="rounded-full px-3 py-2 text-xs font-semibold capitalize text-slate-500 hover:bg-slate-100 hover:text-ink">
+                      <button key={s} name="status" value={s} className="min-h-9 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold capitalize text-slate-600 transition-colors hover:border-ink hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                         {s}
                       </button>
                     ))}

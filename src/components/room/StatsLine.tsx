@@ -17,7 +17,7 @@ export function StatsLine({ stats }: { stats: RoomStats }) {
           {i > 0 && <span aria-hidden className="hidden size-1 rounded-full bg-room-border sm:block" />}
           <div className="flex w-full flex-col items-center gap-0.5 sm:w-auto sm:flex-row sm:items-baseline sm:gap-1.5">
             <dt className="sr-only">{item.label}</dt>
-            <dd className={`text-lg font-bold tabular-nums sm:text-[13px] ${item.tone ?? "text-room-fg"}`}>
+            <dd className={`text-lg font-bold tabular-nums sm:text-[13px] ${item.tone && stats[item.key] ? item.tone : "text-room-fg"}`}>
               {stats[item.key]}
             </dd>
             <span aria-hidden className="text-[11px] sm:text-[13px]">{item.label}</span>

@@ -9,6 +9,7 @@ export default function TermsPage() {
   const n = brand.legalName;
   return (
     <LegalPage
+      current="terms"
       title="Terms of service"
       intro={`These terms cover your use of the ${n} client delivery rooms at ${brand.siteUrl.replace("https://", "")}. By creating an account or opening a room, you agree to them.`}
     >

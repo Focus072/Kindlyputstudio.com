@@ -47,7 +47,7 @@ export function RoomCard({ room }: { room: RoomSummary }) {
               { label: "Views", value: room.stats.views, tone: "text-ink" },
             ].map((s) => (
               <div key={s.label}>
-                <dd className={`text-lg font-bold tabular-nums ${s.tone}`}>{s.value}</dd>
+                <dd className={`text-lg font-bold tabular-nums ${s.value ? s.tone : "text-ink/30"}`}>{s.value}</dd>
                 <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{s.label}</dt>
               </div>
             ))}

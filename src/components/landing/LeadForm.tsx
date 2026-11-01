@@ -26,7 +26,7 @@ export function LeadForm() {
       <input name="business" maxLength={120} placeholder="Business" autoComplete="organization" className={field} />
       <input name="email" type="email" required maxLength={160} placeholder="Email" autoComplete="email" className={field} />
       <input name="phone" type="tel" maxLength={40} placeholder="Phone (optional)" autoComplete="tel" className={field} />
-      <select name="service" defaultValue="" className={`${field} sm:col-span-2`}>
+      <select name="service" defaultValue="" className={`${field} sm:col-span-2 has-[option[value='']:checked]:text-white/40`}>
         <option value="" disabled className="text-ink">What do you need?</option>
         {["Photography", "Video", "Photo + video", "Social content", "Not sure yet"].map((s) => (
           <option key={s} value={s} className="text-ink">{s}</option>

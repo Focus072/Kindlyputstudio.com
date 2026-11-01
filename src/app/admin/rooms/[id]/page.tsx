@@ -49,7 +49,7 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
             { label: "Pending", value: stats.pending, tone: "text-ink" },
           ].map((s) => (
             <div key={s.label} className="min-w-0 px-1">
-              <dd className={`text-lg font-bold tabular-nums sm:text-2xl ${s.tone}`}>{s.value}</dd>
+              <dd className={`text-lg font-bold tabular-nums sm:text-2xl ${s.value ? s.tone : "text-ink/30"}`}>{s.value}</dd>
               <dt className="truncate text-[9px] font-semibold uppercase tracking-wider text-slate-400 sm:text-[11px]">{s.label}</dt>
             </div>
           ))}

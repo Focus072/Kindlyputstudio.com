@@ -35,7 +35,7 @@ export default async function ClientsPage() {
                 </div>
                 <div className="hidden text-right text-xs text-slate-500 sm:block">
                   <p>
-                    {c.roomCount} {c.roomCount === 1 ? "room" : "rooms"} · {c.approvals} approvals · {c.comments} comments
+                    {c.roomCount} {c.roomCount === 1 ? "room" : "rooms"} · {c.approvals} {c.approvals === 1 ? "approval" : "approvals"} · {c.comments} {c.comments === 1 ? "note" : "notes"}
                   </p>
                   <p>
                     {c.provider === "google" ? "Google" : "Email"} · last seen {timeAgo(c.last_seen_at)}
