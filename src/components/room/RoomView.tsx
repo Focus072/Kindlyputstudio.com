@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Play, UserRound } from "lucide-react";
+import { ArrowLeft, Download, Play, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { addComment, recordView, setReview } from "@/app/r/[slug]/actions";
 import { themeVars } from "@/config/themes";
@@ -29,6 +29,8 @@ export type RoomViewProps = {
   brand: { name: string; mark: string; poweredByLabel: string };
   /** Admin preview: shows the room exactly as the client sees it, without tracking. */
   preview?: boolean;
+  /** Set when a studio admin is looking: shows a way back to the admin. */
+  adminRoomId?: string | null;
   /** Signed-in client, or null when nobody is signed in. */
   viewer: { name: string; avatarUrl: string | null } | null;
   /** When set, the room is locked behind the create-account popup. */
@@ -43,7 +45,7 @@ export type RoomViewProps = {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, viewer, gate }: RoomViewProps) {
+export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -129,6 +131,14 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
       <header className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 sm:pt-[calc(1.75rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-3" aria-label={brand.name}>
+          {adminRoomId && (
+            <a
+              href={`/admin/rooms/${adminRoomId}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-room-border bg-white/10 py-1.5 pl-2.5 pr-3.5 text-xs font-semibold backdrop-blur-md hover:bg-white/15"
+            >
+              <ArrowLeft className="size-4" /> Admin
+            </a>
+          )}
           <img src={brand.mark} alt="" className="h-8 w-auto sm:h-9" />
           <span className="hidden text-[11px] font-semibold uppercase tracking-[0.28em] sm:inline">
             {brand.name}

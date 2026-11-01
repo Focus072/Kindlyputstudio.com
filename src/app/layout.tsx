@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: { default: brand.name, template: `%s · ${brand.name}` },
   description: `Photo and video delivery rooms by ${brand.legalName}, ${brand.city}.`,
   applicationName: brand.name,
-  appleWebApp: { capable: true, title: "KPS", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "KPS", statusBarStyle: "black" },
   formatDetection: { telephone: false },
 };
 

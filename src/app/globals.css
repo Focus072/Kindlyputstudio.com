@@ -27,9 +27,15 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Ink behind everything, so iOS home-screen mode never shows a light strip
+   under the tab bar or past the end of a page. Light pages paint their own. */
+html {
+  background: #1d2b32;
+}
+
 body {
   font-family: var(--font-sans);
-  background: #eceef0;
+  background: #1d2b32;
   color: #1d2b32;
 }
 

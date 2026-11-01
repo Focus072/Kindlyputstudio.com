@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { getTheme } from "@/config/themes";
 import type { RoomSummary } from "@/lib/data";
@@ -59,11 +59,9 @@ export function RoomCard({ room }: { room: RoomSummary }) {
         <CopyLink path={`/r/${room.slug}`} className="justify-center py-2.5" />
         <a
           href={`/r/${room.slug}`}
-          target="_blank"
-          rel="noreferrer"
           className="inline-flex items-center justify-center gap-1.5 rounded-full bg-ink px-3.5 py-2.5 text-sm font-semibold text-white"
         >
-          Open <ExternalLink className="size-3.5" />
+          Open <ArrowUpRight className="size-4" />
         </a>
       </div>
     </li>

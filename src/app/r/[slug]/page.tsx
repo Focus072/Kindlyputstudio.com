@@ -76,6 +76,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
       brand={brandProps}
       viewer={client ? { name: client.name, avatarUrl: client.avatarUrl } : null}
       preview={admin && !client}
+      adminRoomId={admin ? room.id : null}
     />
   );
 }

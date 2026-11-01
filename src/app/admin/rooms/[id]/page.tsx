@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { updateRoom } from "@/app/admin/actions";
 import { AdminFileGrid } from "@/components/admin/AdminFileGrid";
 import { CopyLink } from "@/components/admin/CopyLink";
@@ -34,11 +34,9 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
             <CopyLink path={`/r/${room.slug}`} label="Copy link" className="justify-center py-2.5" />
             <a
               href={`/r/${room.slug}`}
-              target="_blank"
-              rel="noreferrer"
               className="inline-flex items-center justify-center gap-1.5 rounded-full bg-ink px-4 py-2.5 text-sm font-bold text-white"
             >
-              Open room <ExternalLink className="size-3.5" />
+              Open room <ArrowUpRight className="size-4" />
             </a>
           </div>
         </div>

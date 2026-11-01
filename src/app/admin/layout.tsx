@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   await requireAdmin();
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh bg-[#eceef0]">
       <header className="sticky top-0 z-20 bg-ink/95 pt-[env(safe-area-inset-top)] text-white backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/admin" className="flex items-center gap-3">
