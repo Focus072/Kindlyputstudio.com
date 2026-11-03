@@ -19,10 +19,10 @@ export function slugify(input: string): string {
     .slice(0, 40);
 }
 
-/** Readable but unguessable room link, for example "adro-m4-k7x2pq". */
+/** Readable but unguessable room link, for example "adro-m4-k7x2pqh9wm" (31^10 codes). */
 export function roomSlug(title: string): string {
   const base = slugify(title) || "room";
-  return `${base}-${randomCode(6)}`;
+  return `${base}-${randomCode(10)}`;
 }
 
 export function randomFileKey(): string {

@@ -64,3 +64,8 @@ body:has(.room-root) {
 .kp-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Watermark over room previews until the studio turns it off. */
+.kp-watermark {
+  background-image: repeating-linear-gradient(-30deg, transparent 0 46px, rgba(255, 255, 255, 0.06) 46px 47px);
+}

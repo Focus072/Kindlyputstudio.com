@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { brand } from "@/config/brand";
 import { LegalPage } from "@/components/legal/LegalPage";
+import { getStudioSettings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Terms of Service" };
 
-export default function TermsPage() {
+export default async function TermsPage() {
   const n = brand.legalName;
+  const { contactEmail } = await getStudioSettings();
   return (
     <LegalPage
       current="terms"
+      contactEmail={contactEmail}
       title="Terms of service"
       intro={`These terms cover your use of the ${n} client delivery rooms at ${brand.siteUrl.replace("https://", "")}. By creating an account or opening a room, you agree to them.`}
     >

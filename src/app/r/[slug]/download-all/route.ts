@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { downloadZip } from "client-zip";
 import { isAdmin } from "@/lib/auth";
 import { getClientUser } from "@/lib/client-auth";
-import { getFiles, getRoomBySlug, isRoomOpen } from "@/lib/data";
+import { clientMayOpen } from "@/lib/access";
+import { canDownload, currentFiles, getFiles, getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
 import { slugify } from "@/lib/slug";
@@ -21,9 +22,10 @@ export async function GET(
   const client = await getClientUser();
   const admin = await isAdmin();
   if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
+  if (!admin && client && !(await clientMayOpen(room, client))) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
 
-  const files = await getFiles(room.id);
-  if (files.length === 0) return new Response("No files yet", { status: 404 });
+  const files = currentFiles(await getFiles(room.id)).filter((f) => admin || canDownload(room, f));
+  if (files.length === 0) return new Response("No files are open for download yet.", { status: 404 });
 
   const db = supabaseAdmin();
   const { data: signed, error } = await db.storage
@@ -54,7 +56,9 @@ export async function GET(
       if (!url) continue;
       const res = await fetch(url);
       if (!res.ok || !res.body) continue;
-      yield { name: uniqueName(files[i].file_name), input: res };
+      // Files in a set go into a folder named after it.
+      const folder = files[i].category?.trim().replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60);
+      yield { name: uniqueName(folder ? `${folder}/${files[i].file_name}` : files[i].file_name), input: res };
     }
   }
 

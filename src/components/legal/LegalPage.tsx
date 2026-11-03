@@ -7,11 +7,13 @@ export function LegalPage({
   title,
   intro,
   current,
+  contactEmail,
   children,
 }: {
   title: string;
   intro: string;
   current: "privacy" | "terms";
+  contactEmail?: string | null;
   children: React.ReactNode;
 }) {
   const link = (key: "privacy" | "terms") =>
@@ -36,6 +38,14 @@ export function LegalPage({
         </div>
         <footer className="mt-16 border-t border-white/10 pt-6 font-typewriter text-xs text-mist/50">
           {brand.legalName} · {brand.city}
+          {contactEmail && (
+            <>
+              {" · "}
+              <a href={`mailto:${contactEmail}`} className="underline underline-offset-4 hover:text-white">
+                {contactEmail}
+              </a>
+            </>
+          )}
         </footer>
       </article>
     </main>

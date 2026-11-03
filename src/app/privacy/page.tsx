@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { brand } from "@/config/brand";
 import { LegalPage } from "@/components/legal/LegalPage";
+import { getStudioSettings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
   const n = brand.legalName;
+  const { contactEmail } = await getStudioSettings();
   return (
     <LegalPage
       current="privacy"
+      contactEmail={contactEmail}
       title="Privacy policy"
       intro={`${n} (“we”, “us”) is a photo and video studio in ${brand.city}. This policy explains what we collect when you use our client delivery rooms at ${brand.siteUrl.replace("https://", "")}, and how we use it.`}
     >
@@ -91,8 +94,15 @@ export default function PrivacyPage() {
       <section>
         <h2>Contact</h2>
         <p>
-          Questions about privacy? Reach {n} in {brand.city} through the contact details on your project paperwork or the
-          message that delivered your room link. See also our <Link href="/terms">Terms of Service</Link>.
+          Questions about privacy? Reach {n} in {brand.city}{" "}
+          {contactEmail ? (
+            <>
+              at <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+            </>
+          ) : (
+            "through the contact details on your project paperwork or the message that delivered your room link"
+          )}
+          . See also our <Link href="/terms">Terms of Service</Link>.
         </p>
       </section>
     </LegalPage>

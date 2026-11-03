@@ -3,8 +3,8 @@
 import { CheckCircle2, CloudUpload, Loader2, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { createUploadTarget, refreshRoom, registerFile } from "@/app/admin/actions";
-import { fileKind, processFile, uploadWithProgress } from "@/lib/media";
+import { refreshRoom } from "@/app/admin/actions";
+import { uploadToRoom } from "@/lib/upload-client";
 
 type Item = {
   id: string;
@@ -35,46 +35,10 @@ export function Uploader({ roomId }: { roomId: string }) {
   }
 
   async function uploadOne(file: File, id: string) {
-    const kind = fileKind(file);
-    if (!kind) {
-      patch(id, { state: "error", error: "Only photos and videos are supported." });
-      return;
-    }
     try {
-      patch(id, { state: "processing" });
-      const processed = await processFile(file, kind);
-      const target = await createUploadTarget(roomId, {
-        name: file.name,
-        kind,
-        withPreviews: !!processed.thumb,
-      });
-
-      patch(id, { state: "uploading" });
-      const extras: Promise<void>[] = [];
-      if (target.thumb && processed.thumb)
-        extras.push(uploadWithProgress(target.thumb.url, processed.thumb, "image/webp"));
-      if (target.preview && processed.preview)
-        extras.push(uploadWithProgress(target.preview.url, processed.preview, "image/webp"));
-      if (target.poster && processed.poster)
-        extras.push(uploadWithProgress(target.poster.url, processed.poster, "image/webp"));
-
-      await Promise.all([
-        uploadWithProgress(target.original.url, file, file.type, (f) => patch(id, { progress: f })),
-        ...extras,
-      ]);
-
-      await registerFile(roomId, {
-        key: target.key,
-        name: file.name,
-        mimeType: file.type,
-        kind,
-        size: file.size,
-        width: processed.width,
-        height: processed.height,
-        duration: processed.duration,
-        hasPreview: !!(target.preview && processed.preview),
-        hasThumb: !!(target.thumb && processed.thumb),
-        hasPoster: !!(target.poster && processed.poster),
+      await uploadToRoom(roomId, file, {
+        onStage: (stage) => patch(id, { state: stage }),
+        onProgress: (f) => patch(id, { progress: f }),
       });
       patch(id, { state: "done", progress: 1 });
     } catch (e) {
@@ -139,7 +103,7 @@ export function Uploader({ roomId }: { roomId: string }) {
       >
         <CloudUpload className="size-8 text-slate-400" />
         <p className="mt-3 font-bold text-ink">Drop photos and videos here</p>
-        <p className="mt-1 text-sm text-slate-500">or tap to choose files. JPG, PNG, WebP, MP4, MOV.</p>
+        <p className="mt-1 text-sm text-slate-500">or tap to choose files. JPG, PNG, HEIC, WebP, MP4, MOV. Big files resume if the connection drops.</p>
         <input
           ref={inputRef}
           type="file"

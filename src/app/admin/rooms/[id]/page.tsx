@@ -12,6 +12,8 @@ import { clientsForRoom } from "@/lib/clients-data";
 import { getRoomById, loadRoomBundle } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 import { ClientAvatar } from "@/components/admin/ClientAvatar";
+import { RoomAccess } from "@/components/admin/RoomAccess";
+import { listAccessRequests, listInvites } from "@/lib/access";
 
 export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/[id]">) {
   await requireAdmin();
@@ -19,7 +21,12 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const room = await getRoomById(id);
   if (!room) notFound();
-  const [{ files, stats, hero }, roomClients] = await Promise.all([loadRoomBundle(room), clientsForRoom(room.id)]);
+  const [{ files, stats, hero }, roomClients, invites, requests] = await Promise.all([
+    loadRoomBundle(room),
+    clientsForRoom(room.id),
+    listInvites(room.id),
+    listAccessRequests(room.id),
+  ]);
 
   return (
     <main className="space-y-9">
@@ -55,6 +62,22 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
           ))}
         </dl>
       </div>
+
+      {room.feedback_sent_at && (
+        <p className="rounded-2xl bg-approve/10 px-4 py-3 text-sm font-semibold text-approve ring-1 ring-approve/30">
+          The client sent their feedback {timeAgo(room.feedback_sent_at)}: {stats.approved} approved, {stats.changes} need changes, {stats.pending} not reviewed.
+        </p>
+      )}
+
+      <section>
+        <h2 className="mb-3 text-lg font-bold text-ink">Who can open this room</h2>
+        <RoomAccess
+          roomId={room.id}
+          mode={room.access_mode ?? "link"}
+          invites={invites}
+          requests={requests.map((r) => ({ id: r.id, email: r.email, name: r.name }))}
+        />
+      </section>
 
       <section>
         <h2 className="mb-3 text-lg font-bold text-ink">Clients in this room ({roomClients.length})</h2>

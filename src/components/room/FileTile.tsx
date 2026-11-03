@@ -5,6 +5,7 @@ import { Play } from "lucide-react";
 import { useRef, useState } from "react";
 import type { RoomFile } from "@/lib/types";
 import { ReviewButtons } from "./ReviewButtons";
+import { Watermark } from "./Watermark";
 
 type Props = {
   file: RoomFile;
@@ -12,9 +13,19 @@ type Props = {
   onOpen: () => void;
   onReview: (status: "approved" | "changes") => void;
   onComment: () => void;
+  /** Keep the file's own shape instead of cropping to 4:5. */
+  natural?: boolean;
+  /** Studio name tiled over the preview. */
+  watermark?: string | null;
 };
 
-export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
+/** Width / height, kept between a tall reel (9:16) and a wide banner (21:9). */
+function ratio(file: RoomFile) {
+  if (!file.width || !file.height) return 4 / 5;
+  return Math.min(21 / 9, Math.max(9 / 16, file.width / file.height));
+}
+
+export function FileTile({ file, index, onOpen, onReview, onComment, natural, watermark }: Props) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = file.kind === "video";
@@ -37,13 +48,17 @@ export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
         ? { animate: { opacity: 1, y: 0 } }
         : { whileInView: { opacity: 1, y: 0 }, viewport: { once: true, amount: 0.15 } })}
       transition={{ duration: 0.5, delay: Math.min(index % 8, 7) * 0.04, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative"
+      className={`group relative ${natural ? "mb-3 break-inside-avoid sm:mb-4 lg:mb-5" : ""}`}
     >
       <motion.div
         whileHover={{ y: -4 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        className="relative aspect-[4/5] cursor-pointer overflow-hidden rounded-2xl border border-room-border bg-room-surface shadow-[0_20px_40px_-24px_rgba(0,0,0,0.8)]"
+        className={`relative cursor-pointer overflow-hidden rounded-2xl border border-room-border bg-room-surface shadow-[0_20px_40px_-24px_rgba(0,0,0,0.8)] ${
+          natural ? "" : "aspect-[4/5]"
+        }`}
+        style={natural ? { aspectRatio: String(ratio(file)) } : undefined}
         onClick={handleClick}
+        onContextMenu={watermark ? (e) => e.preventDefault() : undefined}
         role="button"
         tabIndex={0}
         aria-label={`${isVideo ? "Play" : "Open"} ${file.fileName}`}
@@ -69,7 +84,8 @@ export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
         ) : cover ? (
           <img
             src={cover}
-            alt={file.fileName}
+            alt={file.caption ?? file.fileName}
+            draggable={!watermark}
             loading={index < 8 ? "eager" : "lazy"}
             decoding="async"
             className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
@@ -78,6 +94,14 @@ export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
           <div className="absolute inset-0 flex items-center justify-center p-4 text-center font-typewriter text-xs text-room-muted">
             {file.fileName}
           </div>
+        )}
+
+        {watermark && !(isVideo && playing) && <Watermark label={watermark} />}
+
+        {file.versions.length > 0 && (
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-black/60 px-2 py-0.5 font-typewriter text-[11px] font-bold text-white backdrop-blur-md">
+            v{file.version}
+          </span>
         )}
 
         {isVideo && !playing && (
@@ -121,6 +145,9 @@ export function FileTile({ file, index, onOpen, onReview, onComment }: Props) {
           </div>
         )}
       </motion.div>
+      {file.caption && (
+        <p className="mt-2 line-clamp-2 px-1 text-xs leading-relaxed text-room-muted">{file.caption}</p>
+      )}
     </motion.li>
   );
 }

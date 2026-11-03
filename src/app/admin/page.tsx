@@ -1,12 +1,46 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { ActivityList } from "@/components/admin/ActivityList";
 import { RoomCard } from "@/components/admin/RoomCard";
+import { listActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/auth";
 import { listRoomsWithStats } from "@/lib/data";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+const DAY = 86_400_000;
 
 export default async function AdminHome() {
   await requireAdmin();
-  const rooms = await listRoomsWithStats();
+  const [rooms, recent, { count: accessCount }] = await Promise.all([
+    listRoomsWithStats(),
+    listActivity(6),
+    supabaseAdmin().from("access_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
+
+  const now = new Date().getTime();
+  const live = rooms.filter((r) => r.status === "live");
+  const overview = [
+    {
+      label: "Feedback sent",
+      hint: "last 14 days",
+      value: live.filter((r) => r.feedback_sent_at && now - new Date(r.feedback_sent_at).getTime() < 14 * DAY).length,
+      tone: "text-approve",
+    },
+    { label: "Changes asked", hint: "rooms with notes to fix", value: live.filter((r) => r.stats.changes > 0).length, tone: "text-decline" },
+    {
+      label: "Waiting on client",
+      hint: "files not reviewed",
+      value: live.filter((r) => r.stats.pending > 0 && !r.feedback_sent_at).length,
+      tone: "text-ink",
+    },
+    {
+      label: "Expiring soon",
+      hint: "next 7 days",
+      value: live.filter((r) => r.expires_at && new Date(r.expires_at).getTime() - now < 7 * DAY).length,
+      tone: "text-amber-600",
+    },
+    { label: "Access requests", hint: "guest-list rooms", value: accessCount ?? 0, tone: "text-amber-600" },
+  ];
 
   return (
     <main>
@@ -23,6 +57,29 @@ export default async function AdminHome() {
           <Plus className="size-4" /> New room
         </Link>
       </div>
+
+      {rooms.length > 0 && (
+        <>
+          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {overview.map((o) => (
+              <div key={o.label} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                <dd className={`text-3xl font-bold tabular-nums ${o.value ? o.tone : "text-ink/25"}`}>{o.value}</dd>
+                <dt className="mt-1 text-sm font-semibold text-ink">{o.label}</dt>
+                <p className="text-xs text-slate-400">{o.hint}</p>
+              </div>
+            ))}
+          </dl>
+          <section className="mt-6">
+            <div className="mb-3 flex items-end justify-between">
+              <h2 className="text-lg font-bold text-ink">Latest activity</h2>
+              <Link href="/admin/activity" className="text-sm font-semibold text-brand hover:underline">
+                See all
+              </Link>
+            </div>
+            <ActivityList items={recent} />
+          </section>
+        </>
+      )}
 
       {rooms.length === 0 ? (
         <div className="mt-8 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center">

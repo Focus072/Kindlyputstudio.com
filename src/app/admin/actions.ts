@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { brand } from "@/config/brand";
 import { getTheme, isHex } from "@/config/themes";
+import { isEmail, normalizeEmail } from "@/lib/access";
 import { requireAdmin } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { randomFileKey, roomSlug } from "@/lib/slug";
+import { supabasePublicConfig } from "@/lib/env";
 import { ORIGINALS_BUCKET, PREVIEWS_BUCKET } from "@/lib/storage";
 
-type FormState = { error?: string; ok?: boolean } | undefined;
+type FormState = { error?: string; ok?: boolean; warning?: string } | undefined;
 
 function text(formData: FormData, key: string, max = 120) {
   return String(formData.get(key) ?? "").trim().slice(0, max);
@@ -25,7 +27,26 @@ function roomFields(formData: FormData) {
   const expiresRaw = text(formData, "expires_at", 30);
   const expiresAt = expiresRaw ? new Date(`${expiresRaw}T23:59:59`).toISOString() : null;
   const status = text(formData, "status", 10);
+  const layout = text(formData, "layout", 10);
+  const downloads = text(formData, "downloads", 10);
+  const paymentStatus = text(formData, "payment_status", 10);
+  const paymentRaw = text(formData, "payment_url", 500);
+  let paymentUrl: string | null = null;
+  try {
+    if (paymentRaw) {
+      const u = new URL(/^https?:\/\//i.test(paymentRaw) ? paymentRaw : `https://${paymentRaw}`);
+      if (u.protocol === "https:" || u.protocol === "http:") paymentUrl = u.toString();
+    }
+  } catch {
+    paymentUrl = null;
+  }
   return {
+    layout: layout === "natural" ? "natural" : "grid",
+    downloads: ["on", "approved", "off"].includes(downloads) ? downloads : "on",
+    watermark: formData.get("watermark") === "on",
+    paymentUrl,
+    paymentStatus: ["none", "due", "paid"].includes(paymentStatus) ? paymentStatus : "none",
+    intro: text(formData, "intro", 600) || null,
     title,
     clientName,
     deliveredBy,
@@ -57,6 +78,7 @@ export async function createRoom(_prev: FormState, formData: FormData): Promise<
       theme_preset: f.preset,
       accent_color: f.accent,
       expires_at: f.expiresAt,
+      intro: f.intro,
       status: "live",
     })
     .select("id")
@@ -84,6 +106,12 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
       expires_at: f.expiresAt,
       status: f.status,
       showcase: f.showcase,
+      layout: f.layout,
+      downloads: f.downloads,
+      watermark: f.watermark,
+      payment_url: f.paymentUrl,
+      payment_status: f.paymentStatus,
+      intro: f.intro,
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId);
@@ -91,6 +119,9 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
   revalidatePath(`/admin/rooms/${roomId}`);
   revalidatePath("/admin");
   revalidatePath("/");
+  if (f.paymentStatus === "due" && !f.paymentUrl) {
+    return { ok: true, warning: "Saved. Add a payment link so the client has a way to pay." };
+  }
   return { ok: true };
 }
 
@@ -119,7 +150,9 @@ export async function deleteRoom(roomId: string) {
 
 export type UploadTarget = {
   key: string;
-  original: { path: string; url: string };
+  original: { path: string; url: string; token: string; bucket: string };
+  /** Resumable (TUS) upload endpoint and the public key it needs. */
+  resumable: { endpoint: string; apiKey: string };
   preview: { path: string; url: string } | null;
   thumb: { path: string; url: string } | null;
   poster: { path: string; url: string } | null;
@@ -153,7 +186,7 @@ export async function createUploadTarget(
   async function sign(bucket: string, path: string) {
     const { data, error } = await db.storage.from(bucket).createSignedUploadUrl(path);
     if (error || !data) throw new Error(error?.message ?? "Could not create upload link.");
-    return { path, url: data.signedUrl };
+    return { path, url: data.signedUrl, token: data.token, bucket };
   }
 
   const isVideo = file.kind === "video";
@@ -163,7 +196,10 @@ export async function createUploadTarget(
     file.withPreviews ? sign(PREVIEWS_BUCKET, p.thumb) : null,
     file.withPreviews && isVideo ? sign(PREVIEWS_BUCKET, p.poster) : null,
   ]);
-  return { key, original, preview, thumb, poster };
+  const { url, key: apiKey } = supabasePublicConfig();
+  // Large uploads go faster on the direct storage host (project.storage.supabase.co).
+  const direct = url.replace(/^https:\/\/([a-z0-9]+)\.supabase\.co$/, "https://$1.storage.supabase.co");
+  return { key, original, preview, thumb, poster, resumable: { endpoint: `${direct}/storage/v1/upload/resumable`, apiKey } };
 }
 
 /** Saves the file record once its upload has finished. */
@@ -181,6 +217,8 @@ export async function registerFile(
     hasPreview: boolean;
     hasThumb: boolean;
     hasPoster: boolean;
+    /** Upload this as a new version of an existing file. */
+    replaceOf?: string | null;
   },
 ) {
   await requireAdmin();
@@ -195,6 +233,16 @@ export async function registerFile(
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const { data: previous } = input.replaceOf
+    ? await db
+        .from("files")
+        .select("id, sort_order, version, category, caption")
+        .eq("id", input.replaceOf)
+        .eq("room_id", roomId)
+        .is("replaced_by", null)
+        .maybeSingle()
+    : { data: null };
 
   const { data, error } = await db
     .from("files")
@@ -211,11 +259,21 @@ export async function registerFile(
       height: input.height,
       duration: input.duration,
       size_bytes: input.size,
-      sort_order: (last?.sort_order ?? -1) + 1,
+      sort_order: previous ? previous.sort_order : (last?.sort_order ?? -1) + 1,
+      version: previous ? (previous.version ?? 1) + 1 : 1,
+      category: previous?.category ?? null,
+      caption: previous?.caption ?? null,
     })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  if (previous) {
+    await db.from("files").update({ replaced_by: data.id }).eq("id", previous.id);
+    // A new version starts a fresh review round.
+    await db.from("rooms").update({ hero_file_id: data.id }).eq("id", roomId).eq("hero_file_id", previous.id);
+    return { id: data.id as string };
+  }
 
   // The first photo becomes the hero until you pick another.
   const { data: room } = await db.from("rooms").select("hero_file_id").eq("id", roomId).single();
@@ -262,6 +320,7 @@ export async function moveFile(roomId: string, fileId: string, direction: -1 | 1
     .from("files")
     .select("id, sort_order")
     .eq("room_id", roomId)
+    .is("replaced_by", null)
     .order("sort_order")
     .order("created_at");
   if (!files) return;
@@ -300,4 +359,136 @@ export async function replyToComment(roomId: string, fileId: string, body: strin
     from_agency: true,
   });
   revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+export async function updateFileDetails(roomId: string, fileId: string, input: { caption?: string | null; category?: string | null }) {
+  await requireAdmin();
+  const patch: Record<string, string | null> = {};
+  if (input.caption !== undefined) patch.caption = String(input.caption ?? "").trim().slice(0, 500) || null;
+  if (input.category !== undefined) patch.category = String(input.category ?? "").trim().slice(0, 40) || null;
+  await supabaseAdmin().from("files").update(patch).eq("id", fileId).eq("room_id", roomId);
+  revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+/** Saves a new order for the room's files (drag and drop). */
+export async function reorderFiles(roomId: string, orderedIds: string[]) {
+  await requireAdmin();
+  const db = supabaseAdmin();
+  const { data: files } = await db.from("files").select("id, sort_order").eq("room_id", roomId).is("replaced_by", null);
+  if (!files) return;
+  const known = new Set(files.map((f) => f.id));
+  const ids = orderedIds.filter((id) => known.has(id));
+  for (const f of files) if (!ids.includes(f.id)) ids.push(f.id);
+  const current = new Map(files.map((f) => [f.id, f.sort_order]));
+  await Promise.all(
+    ids.map((id, index) => (current.get(id) === index ? null : db.from("files").update({ sort_order: index }).eq("id", id))),
+  );
+  revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+/** Bulk actions on selected files. */
+export async function bulkFiles(
+  roomId: string,
+  ids: string[],
+  action: { type: "delete" } | { type: "reset" } | { type: "set"; category: string | null },
+) {
+  await requireAdmin();
+  const list = ids.filter((id) => /^[0-9a-f-]{36}$/.test(id)).slice(0, 500);
+  if (list.length === 0) return;
+  const db = supabaseAdmin();
+  if (action.type === "delete") {
+    const { data: files } = await db
+      .from("files")
+      .select("id, original_path, preview_path, thumb_path, poster_path")
+      .eq("room_id", roomId)
+      .in("id", list);
+    const originals = (files ?? []).map((f) => f.original_path);
+    const previews = (files ?? []).flatMap((f) => [f.preview_path, f.thumb_path, f.poster_path]).filter(Boolean) as string[];
+    if (originals.length) await db.storage.from(ORIGINALS_BUCKET).remove(originals);
+    if (previews.length) await db.storage.from(PREVIEWS_BUCKET).remove(previews);
+    await db.from("files").delete().eq("room_id", roomId).in("id", list);
+  } else if (action.type === "reset") {
+    await db
+      .from("files")
+      .update({ review_status: "pending", reviewed_by: null, reviewed_at: null, reviewed_by_client: null })
+      .eq("room_id", roomId)
+      .in("id", list);
+  } else {
+    const category = String(action.category ?? "").trim().slice(0, 40) || null;
+    await db.from("files").update({ category }).eq("room_id", roomId).in("id", list);
+  }
+  revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+// Guest list -------------------------------------------------------------------
+
+export async function setAccessMode(roomId: string, mode: "link" | "invited") {
+  await requireAdmin();
+  const db = supabaseAdmin();
+  if (mode === "invited") {
+    // Nobody who already opened the room gets locked out by the switch.
+    const { data: opened } = await db.from("room_clients").select("clients(email)").eq("room_id", roomId);
+    const emails = [
+      ...new Set(
+        (opened ?? [])
+          .flatMap((r) => (Array.isArray(r.clients) ? r.clients : [r.clients]))
+          .map((c) => normalizeEmail((c as { email?: string | null } | null)?.email))
+          .filter(isEmail),
+      ),
+    ];
+    if (emails.length) {
+      await db
+        .from("room_invites")
+        .upsert(emails.map((email) => ({ room_id: roomId, email })), { onConflict: "room_id,email", ignoreDuplicates: true });
+    }
+  }
+  await db
+    .from("rooms")
+    .update({ access_mode: mode === "invited" ? "invited" : "link" })
+    .eq("id", roomId);
+  revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+/** Adds one or more emails (comma, space, or line separated) to the guest list. */
+export async function addInvites(roomId: string, raw: string): Promise<{ added: number; invalid: string[] }> {
+  await requireAdmin();
+  const parts = String(raw ?? "")
+    .split(/[\s,;]+/)
+    .map(normalizeEmail)
+    .filter(Boolean)
+    .slice(0, 200);
+  const valid = [...new Set(parts.filter(isEmail))];
+  const invalid = parts.filter((p) => !isEmail(p));
+  if (valid.length) {
+    await supabaseAdmin()
+      .from("room_invites")
+      .upsert(valid.map((email) => ({ room_id: roomId, email })), { onConflict: "room_id,email", ignoreDuplicates: true });
+  }
+  revalidatePath(`/admin/rooms/${roomId}`);
+  return { added: valid.length, invalid };
+}
+
+export async function removeInvite(roomId: string, email: string) {
+  await requireAdmin();
+  await supabaseAdmin().from("room_invites").delete().eq("room_id", roomId).eq("email", normalizeEmail(email));
+  revalidatePath(`/admin/rooms/${roomId}`);
+}
+
+export async function resolveAccessRequest(roomId: string, requestId: string, approve: boolean) {
+  await requireAdmin();
+  const db = supabaseAdmin();
+  const { data: req } = await db
+    .from("access_requests")
+    .select("id, email")
+    .eq("id", requestId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (!req) return;
+  await db.from("access_requests").update({ status: approve ? "approved" : "denied" }).eq("id", req.id);
+  const email = normalizeEmail(req.email);
+  if (approve && email) {
+    await db.from("room_invites").upsert({ room_id: roomId, email }, { onConflict: "room_id,email", ignoreDuplicates: true });
+  }
+  revalidatePath(`/admin/rooms/${roomId}`);
+  revalidatePath("/admin");
 }

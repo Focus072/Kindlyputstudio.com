@@ -24,7 +24,8 @@ You need [Node.js 20 or newer](https://nodejs.org).
    Open `.env.local` and paste your Supabase URL and secret key (the file
    says where to find each one).
 3. Set up the database once. In Supabase, open **SQL Editor > New query**,
-   paste everything from `supabase/migrations/0001_init.sql`, and press **Run**.
+   paste each file in `supabase/migrations/` in order (0001, 0002, ...), and
+   press **Run** after each one.
 4. Create your admin login (see **Admin accounts** below).
 5. Start the app:
    ```bash
@@ -55,6 +56,12 @@ scrypt hashes, never in plain text. To add someone or reset a password:
    ```
 
 Usernames are not case sensitive.
+
+## Studio settings
+
+Name, logo, contact email, the "Powered by" tag, and the default theme are
+edited in **Admin > Settings**. Anything left blank falls back to
+`src/config/brand.ts`.
 
 ## Change the branding
 

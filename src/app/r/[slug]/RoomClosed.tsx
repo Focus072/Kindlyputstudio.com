@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { brand } from "@/config/brand";
 import { themeVars } from "@/config/themes";
+import type { StudioSettings } from "@/lib/settings";
 import type { RoomRow } from "@/lib/types";
 
-export function RoomClosed({ room, expired }: { room: RoomRow; expired: boolean }) {
+export function RoomClosed({ room, expired, studio }: { room: RoomRow; expired: boolean; studio: StudioSettings }) {
   return (
     <div
       className="room-root flex min-h-dvh items-center justify-center bg-room-bg px-6 text-center text-room-fg"
@@ -16,13 +16,13 @@ export function RoomClosed({ room, expired }: { room: RoomRow; expired: boolean 
           {expired
             ? "This delivery link has expired."
             : "This room is not open right now."}{" "}
-          Reach out to {brand.name} and we will send you a fresh link.
+          Reach out to {studio.name} and we will send you a fresh link.
         </p>
         <Link
-          href="/#start"
+          href={studio.contactEmail ? `mailto:${studio.contactEmail}` : "/#start"}
           className="mt-8 inline-flex rounded-full border border-current/20 px-5 py-2.5 text-sm font-semibold hover:opacity-80"
         >
-          Contact {brand.name}
+          Contact {studio.name}
         </Link>
       </div>
     </div>

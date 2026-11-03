@@ -5,20 +5,23 @@ import { brand } from "@/config/brand";
 import { DEFAULT_THEME, getTheme, themeList } from "@/config/themes";
 import type { RoomRow } from "@/lib/types";
 
-type State = { error?: string; ok?: boolean } | undefined;
+type State = { error?: string; ok?: boolean; warning?: string } | undefined;
 
 type Props = {
   action: (prev: State, formData: FormData) => Promise<State>;
   room?: RoomRow;
   submitLabel: string;
+  /** Studio defaults from Admin > Settings, used for new rooms. */
+  defaults?: { deliveredBy: string; theme: string };
 };
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:text-sm";
 
-export function RoomForm({ action, room, submitLabel }: Props) {
+export function RoomForm({ action, room, submitLabel, defaults }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
-  const [preset, setPreset] = useState(room?.theme_preset ?? DEFAULT_THEME);
+  const [preset, setPreset] = useState(room?.theme_preset ?? defaults?.theme ?? DEFAULT_THEME);
+  const [payment, setPayment] = useState(room?.payment_status ?? "none");
   const [accent, setAccent] = useState(room?.accent_color ?? getTheme(preset).accent);
 
   return (
@@ -34,7 +37,7 @@ export function RoomForm({ action, room, submitLabel }: Props) {
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Delivered by</span>
-          <input name="delivered_by" maxLength={60} defaultValue={room?.delivered_by ?? brand.deliveredBy} className={field} />
+          <input name="delivered_by" maxLength={60} defaultValue={room?.delivered_by ?? defaults?.deliveredBy ?? brand.deliveredBy} className={field} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Link expires (optional)</span>
@@ -46,6 +49,18 @@ export function RoomForm({ action, room, submitLabel }: Props) {
           />
         </label>
       </div>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-semibold text-slate-700">Note to the client (optional)</span>
+        <textarea
+          name="intro"
+          rows={2}
+          maxLength={600}
+          defaultValue={room?.intro ?? ""}
+          placeholder="Here are your fall campaign edits. Approve your favorites by Friday."
+          className={`${field} resize-y`}
+        />
+      </label>
 
       <fieldset>
         <legend className="mb-1.5 text-sm font-semibold text-slate-700">Room theme</legend>
@@ -97,6 +112,64 @@ export function RoomForm({ action, room, submitLabel }: Props) {
       </fieldset>
 
       {room && (
+        <div className="grid gap-5 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Grid layout</span>
+            <select name="layout" defaultValue={room.layout ?? "grid"} className={field}>
+              <option value="grid">Even grid (every tile 4:5)</option>
+              <option value="natural">True shape (reels stay tall, wide shots stay wide)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Downloads</span>
+            <select name="downloads" defaultValue={room.downloads ?? "on"} className={field}>
+              <option value="on">Every file</option>
+              <option value="approved">Only files the client approved</option>
+              <option value="off">Off (view and review only)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Payment</span>
+            <select
+              name="payment_status"
+              value={payment}
+              onChange={(e) => setPayment(e.target.value as typeof payment)}
+              className={field}
+            >
+              <option value="none">No invoice in this room</option>
+              <option value="due">Invoice due (downloads locked until paid)</option>
+              <option value="paid">Paid (downloads open)</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Payment link</span>
+            <input
+              name="payment_url"
+              type="url"
+              inputMode="url"
+              maxLength={500}
+              defaultValue={room.payment_url ?? ""}
+              placeholder="Stripe, Square, or PayPal invoice link"
+              className={field}
+            />
+            {payment === "due" && (
+              <span className="mt-1 block text-xs text-slate-500">The room shows a Pay invoice button. Switch to Paid once it clears.</span>
+            )}
+          </label>
+        </div>
+      )}
+
+      {room && (
+        <label className="flex items-start gap-3 text-sm text-slate-700">
+          <input type="checkbox" name="watermark" defaultChecked={!!room.watermark} className="mt-0.5 size-5 accent-[#1d2b32]" />
+          <span>
+            <span className="font-semibold text-ink">Watermark previews</span>
+            <span className="block text-slate-500">Tiles your studio name over every preview. Downloads stay clean.</span>
+          </span>
+        </label>
+      )}
+
+      {room && (
         <label className="block max-w-xs">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Status</span>
           <select name="status" defaultValue={room.status} className={field}>
@@ -118,7 +191,7 @@ export function RoomForm({ action, room, submitLabel }: Props) {
       )}
 
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.ok && <p className="text-sm text-approve">Saved.</p>}
+      {state?.ok && <p className={`text-sm ${state.warning ? "text-amber-700" : "text-approve"}`}>{state.warning ?? "Saved."}</p>}
       <button
         type="submit"
         disabled={pending}
