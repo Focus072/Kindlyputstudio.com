@@ -30,6 +30,8 @@ export type RoomViewProps = {
     paymentUrl?: string | null;
     paymentStatus?: "none" | "due" | "paid";
     feedbackSentAt?: string | null;
+    /** Reviews or notes saved after the last "Send feedback". */
+    unsentChanges?: boolean;
   };
   files: RoomFile[];
   heroId: string | null;
@@ -80,7 +82,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
   const [activeSet, setActiveSet] = useState<string | null>(null);
   const [sentAt, setSentAt] = useState<string | null>(room.feedbackSentAt ?? null);
   /** Reviews or notes since the last "Send feedback". */
-  const [changedSinceSend, setChangedSinceSend] = useState(0);
+  const [changedSinceSend, setChangedSinceSend] = useState(room.unsentChanges ? 1 : 0);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -150,10 +152,20 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
+  /** Mirrors canDownload() on the server, so the lock updates as the client reviews. */
+  function downloadableAs(status: RoomFile["status"]) {
+    if (room.paymentStatus === "due" || room.downloads === "off") return false;
+    return room.downloads === "approved" ? status === "approved" : true;
+  }
+
   async function review(file: RoomFile, status: "approved" | "changes") {
     const next = file.status === status ? "pending" : status;
-    const before = { status: file.status, reviewedBy: file.reviewedBy };
-    patchFile(file.id, { status: next, reviewedBy: next === "pending" ? null : viewer?.name ?? null });
+    const before = { status: file.status, reviewedBy: file.reviewedBy, canDownload: file.canDownload };
+    patchFile(file.id, {
+      status: next,
+      reviewedBy: next === "pending" ? null : viewer?.name ?? null,
+      canDownload: downloadableAs(next),
+    });
     const res = await setReview({ slug: room.slug, fileId: file.id, status: next }).catch(() => ({
       ok: false as const,
       error: "Connection lost. Please try again.",

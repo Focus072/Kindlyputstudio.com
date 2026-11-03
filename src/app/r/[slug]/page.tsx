@@ -7,6 +7,18 @@ import { getClientUser, recordClientVisit } from "@/lib/client-auth";
 import { currentFiles, getFiles, getRoomBySlug, isRoomExpired, isRoomOpen, loadRoomBundle } from "@/lib/data";
 import { supabasePublicConfig } from "@/lib/env";
 import { getStudioSettings } from "@/lib/settings";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+/** Whether anyone reviewed or commented after the last "Send feedback". */
+async function hasChangesSince(roomId: string, since: string) {
+  const { count } = await supabaseAdmin()
+    .from("activity")
+    .select("id", { count: "exact", head: true })
+    .eq("room_id", roomId)
+    .in("type", ["approve", "decline", "reset", "comment"])
+    .gt("created_at", since);
+  return (count ?? 0) > 0;
+}
 import { previewUrl } from "@/lib/storage";
 import { RequestAccess } from "./RequestAccess";
 import { RoomClosed } from "./RoomClosed";
@@ -95,11 +107,12 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
   }
 
   if (client) await recordClientVisit(client, room.id);
+  const unsentChanges = room.feedback_sent_at ? await hasChangesSince(room.id, room.feedback_sent_at) : false;
   const { files, stats, hero } = await loadRoomBundle(room);
 
   return (
     <RoomView
-      room={roomProps}
+      room={{ ...roomProps, unsentChanges }}
       files={files}
       heroId={hero?.id ?? null}
       initialViews={stats.views}

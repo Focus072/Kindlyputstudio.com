@@ -55,6 +55,14 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
     };
   }, [index, files.length, onIndex]);
 
+  // A timestamp tapped while this video is already open: jump there now.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || startAt == null || v.readyState < 1) return;
+    v.currentTime = startAt;
+    v.play().catch(() => {});
+  }, [startAt]);
+
   const older = file && versionId ? file.versions.find((v) => v.id === versionId) ?? null : null;
   const media = file
     ? older
