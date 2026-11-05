@@ -119,14 +119,15 @@ export async function refreshChannels(): Promise<ActionState> {
   }
 }
 
-export async function assignChannel(fd: FormData) {
+export async function assignChannel(fd: FormData): Promise<{ ok?: boolean; error?: string }> {
   await requireAdmin();
   const channelId = text(fd, "channel_id", 80);
   const clientId = text(fd, "client_id", 36);
-  if (!channelId) return;
-  await supabaseAdmin()
+  if (!channelId) return { error: "Missing channel." };
+  const { error } = await supabaseAdmin()
     .from("buffer_channels")
     .update({ client_id: UUID.test(clientId) ? clientId : null })
     .eq("id", channelId);
   refresh();
+  return error ? { error: "Couldn't save. Refresh the page and try again." } : { ok: true };
 }

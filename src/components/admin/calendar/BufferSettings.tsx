@@ -124,18 +124,28 @@ function AutoClients() {
  */
 function ChannelSelect({ channelId, channelName, value, clients }: { channelId: string; channelName: string; value: string; clients: CalClient[] }) {
   const [current, setCurrent] = useState(value);
+  const [failed, setFailed] = useState(false);
   const [saving, start] = useTransition();
   return (
+    <span className="flex shrink-0 flex-col items-end">
     <select
       value={current}
       disabled={saving}
       onChange={(e) => {
         const next = e.target.value;
+        const before = current;
         setCurrent(next);
+        setFailed(false);
         const fd = new FormData();
         fd.set("channel_id", channelId);
         fd.set("client_id", next);
-        start(() => assignChannel(fd));
+        start(async () => {
+          const r = await assignChannel(fd);
+          if (r.error) {
+            setCurrent(before);
+            setFailed(true);
+          }
+        });
       }}
       aria-label={`Client for ${channelName}`}
       className="h-10 max-w-40 shrink-0 rounded-xl border border-slate-200 bg-white px-2 text-base outline-none focus:border-ink disabled:opacity-60 sm:max-w-52 sm:text-sm"
@@ -147,5 +157,7 @@ function ChannelSelect({ channelId, channelName, value, clients }: { channelId: 
         </option>
       ))}
     </select>
+    {failed && <span className="mt-1 text-[11px] font-semibold text-decline">Didn&rsquo;t save. Try again.</span>}
+    </span>
   );
 }
