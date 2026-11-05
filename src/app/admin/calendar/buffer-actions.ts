@@ -195,7 +195,6 @@ export async function updateBufferPost(p: EditPayload): Promise<{ error?: string
     await editBufferPost(key, {
       id: p.id,
       text: String(p.text ?? "").slice(0, 63206),
-      schedulingType: "automatic",
       mode: when.fields!.mode,
       ...(when.fields!.dueAt ? { dueAt: when.fields!.dueAt } : {}),
       ...(p.media ? { assets: assetsFor(p.media.filter((m) => m.url.startsWith("https://")).slice(0, 10)) } : {}),
@@ -225,12 +224,13 @@ export async function movePost(p: { source: "buffer" | "manual"; id: string; at:
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.toDay) || Number.isNaN(Date.parse(p.at))) return { error: "Pick a day." };
   const next = studioToUtc(p.toDay, timeInput(p.at));
   try {
+    // Edits leave schedulingType out so Buffer keeps the post's publishing method.
     if (p.source === "manual") {
       if (!UUID.test(p.id)) return { error: "Missing post." };
       await supabaseAdmin().from("calendar_posts").update({ scheduled_at: next.toISOString(), updated_at: new Date().toISOString() }).eq("id", p.id);
     } else {
       if (next.getTime() < Date.now() + 60_000) return { error: "That day has already passed." };
-      await editBufferPost(await bufferKey(), { id: p.id, schedulingType: "automatic", mode: "customScheduled", dueAt: next.toISOString() });
+      await editBufferPost(await bufferKey(), { id: p.id, mode: "customScheduled", dueAt: next.toISOString() });
     }
     refresh();
     return { ok: true };

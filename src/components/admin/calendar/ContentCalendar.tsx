@@ -53,7 +53,8 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
       /* ignore */
     }
   }, []);
-  const [moved, setMoved] = useState<Record<string, string>>({});
+  // Optimistic drag moves: only applied while the server still reports the old time.
+  const [moved, setMoved] = useState<Record<string, { from: string; to: string }>>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropDay, setDropDay] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -71,7 +72,7 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
   const shown = useMemo(
     () =>
       posts
-        .map((p) => (moved[p.id] ? { ...p, at: moved[p.id] } : p))
+        .map((p) => (moved[p.id]?.from === p.at ? { ...p, at: moved[p.id].to } : p))
         .filter((p) => !hidden.has(p.clientId && clients.some((c) => c.id === p.clientId) ? p.clientId : UNASSIGNED)),
     [posts, moved, hidden, clients],
   );
@@ -128,7 +129,7 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
     if (p.source === "buffer" && day < today) return setToast("Posts can only move to today or later.");
     const keep = p.at;
     const target = new Date(new Date(p.at).getTime() + (Date.parse(`${day}T12:00:00Z`) - Date.parse(`${dayKey(p.at)}T12:00:00Z`))).toISOString();
-    setMoved((m) => ({ ...m, [p.id]: target }));
+    setMoved((m) => ({ ...m, [p.id]: { from: posts.find((x) => x.id === p.id)?.at ?? keep, to: target } }));
     const r = await movePost({ source: p.source, id: p.source === "buffer" ? p.bufferId! : p.id, at: keep, toDay: day });
     if (r.error) {
       setMoved((m) => {
