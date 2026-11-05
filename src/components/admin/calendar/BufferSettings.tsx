@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
-import { CircleCheck, ExternalLink, RefreshCw } from "lucide-react";
+import { CircleCheck, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { assignChannel, connectBuffer, disconnectBuffer, refreshChannels, type ActionState } from "@/app/admin/calendar/actions";
+import { clientsFromChannels } from "@/app/admin/calendar/buffer-actions";
 import { type CalClient, platformInfo } from "@/lib/calendar";
 
 const field =
@@ -76,6 +77,7 @@ export function ChannelList({ channels, clients }: { channels: Channel[]; client
     <div className="mt-5">
       <h3 className="text-sm font-bold text-ink">Which client is each channel?</h3>
       <p className="text-sm text-slate-500">Posts take the color of the channel&rsquo;s client.</p>
+      {channels.some((c) => !c.client_id) && <AutoClients />}
       <ul className="mt-3 divide-y divide-slate-100 rounded-2xl ring-1 ring-slate-200">
         {channels.map((ch) => (
           <li key={ch.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -115,5 +117,19 @@ export function ChannelList({ channels, clients }: { channels: Channel[]; client
         ))}
       </ul>
     </div>
+  );
+}
+
+function AutoClients() {
+  const [state, run, pending] = useActionState(clientsFromChannels, undefined);
+  return (
+    <form action={run} className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3">
+      <button disabled={pending} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-50">
+        <Sparkles className="size-4" /> {pending ? "Setting up…" : "Make a client for each channel"}
+      </button>
+      <span className="min-w-0 flex-1 text-xs text-slate-500">
+        {state?.error || state?.ok || "Channels with matching names (like “Joe’s Pizza” and joespizza_bakery) share one client. You can rename, recolor or reassign after."}
+      </span>
+    </form>
   );
 }

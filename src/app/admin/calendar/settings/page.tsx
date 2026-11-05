@@ -6,6 +6,7 @@ import { ClientColors } from "@/components/admin/calendar/ClientColors";
 import { requireAdmin } from "@/lib/auth";
 import { getBufferKey } from "@/lib/buffer";
 import { loadChannels, loadClients } from "@/lib/calendar-data";
+import { STUDIO_TZ_LABEL } from "@/lib/calendar-time";
 
 export const metadata: Metadata = { title: "Calendar settings" };
 
@@ -35,10 +36,11 @@ export default async function CalendarSettingsPage() {
       <section className="mt-6 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <h2 className="font-display text-3xl uppercase leading-none text-ink">Buffer</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Keep posting in Buffer as usual. The calendar reads your queue and never changes anything in Buffer.
+          Buffer does the publishing. You write, schedule, edit and delete posts from this calendar. Open Buffer only to connect a new account, then press Refresh channels here.
         </p>
         <BufferConnect connected={key ? key.source : null} />
         {key && <ChannelList channels={channels} clients={clients} />}
+        <p className="mt-4 text-xs text-slate-400">Times on the calendar are {STUDIO_TZ_LABEL}.</p>
       </section>
     </main>
   );

@@ -1,6 +1,6 @@
 import "server-only";
 import { BufferError, bufferChannels, bufferOrganizations, bufferPosts, getBufferKey, type BufferChannel } from "@/lib/buffer";
-import type { CalClient, CalPost, CalStatus } from "@/lib/calendar";
+import type { CalChannel, CalClient, CalPost, CalStatus } from "@/lib/calendar";
 import { gridRange } from "@/lib/calendar-time";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -14,6 +14,11 @@ type ChannelRow = { id: string; organization_id: string; name: string; service: 
 export async function loadClients(): Promise<{ clients: CalClient[]; ready: boolean }> {
   const { data, error } = await supabaseAdmin().from("calendar_clients").select("id, name, color").order("name");
   return { clients: (data ?? []) as CalClient[], ready: !error };
+}
+
+/** Channels in the shape the composer uses. */
+export async function loadComposerChannels(): Promise<CalChannel[]> {
+  return (await loadChannels()).map((c) => ({ id: c.id, name: c.name, service: c.service, avatar: c.avatar, clientId: c.client_id }));
 }
 
 export async function loadChannels(): Promise<ChannelRow[]> {
@@ -52,7 +57,7 @@ function bufferStatus(s: string): CalStatus {
   const v = s.toLowerCase();
   if (v === "sent") return "posted";
   if (v === "error") return "error";
-  if (v === "draft") return "draft";
+  if (v === "draft" || v === "needs_approval") return "draft";
   return "scheduled";
 }
 
@@ -81,6 +86,9 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
     isVideo: false,
     channelName: null,
     link: null,
+    bufferId: null,
+    channelId: null,
+    media: [],
   }));
 
   const key = await getBufferKey();
@@ -104,6 +112,9 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
     for (const p of fromBuffer) {
       const ch = byId.get(p.channelId);
       const asset = p.assets?.[0];
+      const media = (p.assets ?? [])
+        .filter((a) => a.source)
+        .map((a) => ({ url: a.source as string, thumb: a.thumbnail || null, isVideo: /video/i.test(`${a.mimeType} ${a.type}`) }));
       posts.push({
         id: `buffer-${p.id}`,
         source: "buffer",
@@ -117,6 +128,9 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
         isVideo: !!asset && (/video/i.test(asset.mimeType ?? "") || /video/i.test(asset.type ?? "")),
         channelName: ch?.name ?? null,
         link: p.externalLink,
+        bufferId: p.id,
+        channelId: p.channelId,
+        media,
       });
     }
     posts.sort((a, b) => a.at.localeCompare(b.at));

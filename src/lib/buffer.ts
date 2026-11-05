@@ -20,7 +20,7 @@ export type BufferPost = {
   channelId: string;
   channelService: string;
   externalLink: string | null;
-  assets: { type: string | null; thumbnail: string | null; mimeType: string | null }[];
+  assets: { type: string | null; thumbnail: string | null; mimeType: string | null; source: string | null }[];
 };
 
 /** The saved key (admin settings) wins; BUFFER_API_KEY works as a fallback. */
@@ -84,7 +84,7 @@ export async function bufferChannels(key: string, organizationId: string): Promi
 
 const POSTS_QUERY = `query Posts($input: PostsInput!, $after: String) {
   posts(first: 100, after: $after, input: $input) {
-    edges { node { id text status dueAt sentAt channelId channelService externalLink assets { type thumbnail mimeType } } }
+    edges { node { id text status dueAt sentAt channelId channelService externalLink assets { type thumbnail mimeType source } } }
     pageInfo { hasNextPage endCursor }
   }
 }`;
@@ -105,7 +105,7 @@ async function pagedPosts(key: string, input: Record<string, unknown>, maxPages 
 
 /** Scheduled, sent and failed posts whose time falls inside the range. */
 export async function bufferPosts(key: string, organizationId: string, start: Date, end: Date): Promise<BufferPost[]> {
-  const status = ["scheduled", "sent", "error"];
+  const status = ["scheduled", "sending", "sent", "error", "draft", "needs_approval"];
   let posts: BufferPost[];
   try {
     posts = await pagedPosts(key, {
@@ -123,4 +123,61 @@ export async function bufferPosts(key: string, organizationId: string, start: Da
     const at = Date.parse(p.dueAt || p.sentAt || "");
     return Number.isFinite(at) && at >= s && at < t;
   });
+}
+
+// Writing to Buffer ------------------------------------------------------------
+
+export type BufferAssetInput = { image: { url: string } } | { video: { url: string } };
+
+export type CreatePostInput = {
+  channelId: string;
+  text: string;
+  schedulingType: "automatic";
+  mode: "addToQueue" | "customScheduled" | "shareNow" | "shareNext";
+  dueAt?: string;
+  saveToDraft?: boolean;
+  assets?: BufferAssetInput[];
+  metadata?: Record<string, unknown>;
+  source?: string;
+};
+
+export type EditPostInput = {
+  id: string;
+  text?: string;
+  mode?: "addToQueue" | "customScheduled" | "shareNow" | "shareNext";
+  dueAt?: string;
+  schedulingType?: "automatic";
+  saveToDraft?: boolean;
+  assets?: BufferAssetInput[];
+};
+
+type PostResult = { __typename: string; post?: { id: string; status: string; dueAt: string | null }; message?: string };
+
+// Error members of the createPost/editPost unions, as listed in Buffer's own CLI.
+const ERRORS = ["NotFoundError", "UnauthorizedError", "UnexpectedError", "RestProxyError", "LimitReachedError", "InvalidInputError"];
+const RESULT = `__typename ... on PostActionSuccess { post { id status dueAt } } ${ERRORS.map((e) => `... on ${e} { message }`).join(" ")}`;
+
+function unwrap(r: PostResult | null | undefined) {
+  if (!r) throw new BufferError("Buffer didn't confirm the change.");
+  if (r.__typename !== "PostActionSuccess" || !r.post) throw new BufferError(r.message || "Buffer turned the post down.");
+  return r.post;
+}
+
+export async function createBufferPost(key: string, input: CreatePostInput) {
+  const data = await gql<{ createPost: PostResult }>(key, `mutation CreatePost($input: CreatePostInput!) { createPost(input: $input) { ${RESULT} } }`, { input });
+  return unwrap(data.createPost);
+}
+
+export async function editBufferPost(key: string, input: EditPostInput) {
+  const data = await gql<{ editPost: PostResult }>(key, `mutation EditPost($input: EditPostInput!) { editPost(input: $input) { ${RESULT} } }`, { input });
+  return unwrap(data.editPost);
+}
+
+export async function deleteBufferPost(key: string, id: string) {
+  const data = await gql<{ deletePost: { __typename: string; message?: string } }>(
+    key,
+    `mutation DeletePost($input: DeletePostInput!) { deletePost(input: $input) { __typename ... on VoidMutationError { message } } }`,
+    { input: { id } },
+  );
+  if (data.deletePost?.__typename !== "DeletePostSuccess") throw new BufferError(data.deletePost?.message || "Buffer couldn't delete the post.");
 }

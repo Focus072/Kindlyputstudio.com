@@ -4,7 +4,7 @@ import { useActionState, useEffect } from "react";
 import { X } from "lucide-react";
 import { deletePost, savePost } from "@/app/admin/calendar/actions";
 import { type CalClient, type CalPost, PLATFORMS } from "@/lib/calendar";
-import { dayKey, timeInput } from "@/lib/calendar-time";
+import { STUDIO_TZ_LABEL, dayKey, timeInput } from "@/lib/calendar-time";
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-ink focus:ring-4 focus:ring-ink/10 sm:text-sm";
@@ -27,17 +27,17 @@ export function PostEditor({ post, defaultDate, clients, onClose }: { post: CalP
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={post ? "Edit post" : "Add post"}
+        aria-label={post ? "Edit note" : "Add a plan"}
         onClick={(e) => e.stopPropagation()}
         className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-3xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-3xl uppercase leading-none text-ink">{post ? "Edit post" : "Add post"}</h2>
+          <h2 className="font-display text-3xl uppercase leading-none text-ink">{post ? "Edit plan" : "Add a plan"}</h2>
           <button onClick={onClose} aria-label="Close" className="inline-flex size-10 items-center justify-center rounded-full hover:bg-slate-100">
             <X className="size-5" />
           </button>
         </div>
-        <p className="mt-1 text-sm text-slate-500">For ideas, drafts, or anything not in Buffer. Times are Bakersfield time.</p>
+        <p className="mt-1 text-sm text-slate-500">Plans and ideas that only live on this calendar. Times are {STUDIO_TZ_LABEL}.</p>
 
         <form action={action} className="mt-4 space-y-4">
           {post && <input type="hidden" name="id" value={post.id} />}

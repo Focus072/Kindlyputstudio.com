@@ -1,7 +1,26 @@
 // Date helpers for the content calendar. Everything is shown in the studio's
-// own time zone (Bakersfield), whatever time zone the server or phone is in.
+// own time zone, whatever time zone the server or phone is in. Set
+// NEXT_PUBLIC_STUDIO_TIMEZONE (an IANA name such as "America/New_York") to change it.
 
-export const STUDIO_TZ = "America/Los_Angeles";
+function validTz(tz: string | undefined) {
+  if (!tz) return null;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return null;
+  }
+}
+
+export const STUDIO_TZ = validTz(process.env.NEXT_PUBLIC_STUDIO_TIMEZONE) ?? "America/Los_Angeles";
+
+/** "Pacific time" style label for the studio time zone. */
+export const STUDIO_TZ_LABEL = (() => {
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: STUDIO_TZ, timeZoneName: "long" })
+    .formatToParts(new Date())
+    .find((p) => p.type === "timeZoneName")?.value;
+  return name ? name.replace(/ (Standard|Daylight) Time$/, " time").replace(/ Time$/, " time") : STUDIO_TZ;
+})();
 
 const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: STUDIO_TZ, year: "numeric", month: "2-digit", day: "2-digit" });
 const timeFmt = new Intl.DateTimeFormat("en-US", { timeZone: STUDIO_TZ, hour: "numeric", minute: "2-digit" });

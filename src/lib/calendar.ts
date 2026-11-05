@@ -17,6 +17,30 @@ export type CalPost = {
   isVideo: boolean;
   channelName: string | null;
   link: string | null;
+  /** Buffer only: the post's own id and channel, for editing. */
+  bufferId: string | null;
+  channelId: string | null;
+  media: CalMedia[];
+};
+
+export type CalMedia = { url: string; thumb: string | null; isVideo: boolean };
+
+/** A Buffer channel as the composer sees it. */
+export type CalChannel = { id: string; name: string; service: string; avatar: string | null; clientId: string | null };
+
+/** Caption limits per network (characters). */
+export const CAPTION_LIMIT: Record<string, number> = {
+  instagram: 2200,
+  tiktok: 2200,
+  facebook: 63206,
+  youtube: 5000,
+  linkedin: 3000,
+  threads: 500,
+  twitter: 280,
+  pinterest: 500,
+  googlebusiness: 1500,
+  bluesky: 300,
+  mastodon: 500,
 };
 
 export const UNASSIGNED_COLOR = "#94a3b8";
