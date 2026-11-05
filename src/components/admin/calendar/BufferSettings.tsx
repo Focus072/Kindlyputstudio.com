@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { CircleCheck, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { assignChannel, connectBuffer, disconnectBuffer, refreshChannels, type ActionState } from "@/app/admin/calendar/actions";
 import { clientsFromChannels } from "@/app/admin/calendar/buffer-actions";
@@ -96,23 +96,7 @@ export function ChannelList({ channels, clients }: { channels: Channel[]; client
               <span className="block truncate text-sm font-semibold text-ink">{ch.name}</span>
               <span className="block text-xs text-slate-500">{platformInfo(ch.service).label}</span>
             </span>
-            <form action={assignChannel} className="shrink-0">
-              <input type="hidden" name="channel_id" value={ch.id} />
-              <select
-                name="client_id"
-                defaultValue={ch.client_id ?? ""}
-                onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                aria-label={`Client for ${ch.name}`}
-                className="h-10 max-w-40 rounded-xl border border-slate-200 bg-white px-2 text-base outline-none focus:border-ink sm:max-w-52 sm:text-sm"
-              >
-                <option value="">No client</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </form>
+            <ChannelSelect key={`${ch.id}-${ch.client_id ?? ""}`} channelId={ch.id} channelName={ch.name} value={ch.client_id ?? ""} clients={clients} />
           </li>
         ))}
       </ul>
@@ -131,5 +115,37 @@ function AutoClients() {
         {state?.error || state?.ok || "Channels with matching names (like “Joe’s Pizza” and joespizza_bakery) share one client. You can rename, recolor or reassign after."}
       </span>
     </form>
+  );
+}
+
+/**
+ * Controlled, so the picked client stays visible while it saves and after the
+ * page refreshes (a plain form select snapped back to its first value).
+ */
+function ChannelSelect({ channelId, channelName, value, clients }: { channelId: string; channelName: string; value: string; clients: CalClient[] }) {
+  const [current, setCurrent] = useState(value);
+  const [saving, start] = useTransition();
+  return (
+    <select
+      value={current}
+      disabled={saving}
+      onChange={(e) => {
+        const next = e.target.value;
+        setCurrent(next);
+        const fd = new FormData();
+        fd.set("channel_id", channelId);
+        fd.set("client_id", next);
+        start(() => assignChannel(fd));
+      }}
+      aria-label={`Client for ${channelName}`}
+      className="h-10 max-w-40 shrink-0 rounded-xl border border-slate-200 bg-white px-2 text-base outline-none focus:border-ink disabled:opacity-60 sm:max-w-52 sm:text-sm"
+    >
+      <option value="">No client</option>
+      {clients.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
+      ))}
+    </select>
   );
 }
