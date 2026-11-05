@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, LayoutGrid, Plus, UsersRound } from "lucide-react";
+import { CalendarDays, Inbox, LayoutGrid, Plus, UsersRound } from "lucide-react";
 
 const tabs = [
   { href: "/admin", label: "Rooms", icon: LayoutGrid, match: (p: string) => p === "/admin" || (p.startsWith("/admin/rooms/") && p !== "/admin/rooms/new") },
   { href: "/admin/rooms/new", label: "New room", icon: Plus, match: (p: string) => p === "/admin/rooms/new" },
+  { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, match: (p: string) => p.startsWith("/admin/calendar") },
   { href: "/admin/clients", label: "Clients", icon: UsersRound, match: (p: string) => p.startsWith("/admin/clients") },
   { href: "/admin/leads", label: "Leads", icon: Inbox, match: (p: string) => p.startsWith("/admin/leads") },
 ];
@@ -41,7 +42,7 @@ export function AdminTabBar() {
       aria-label="Admin"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {tabs.map((t) => {
           const active = t.match(path);
           const Icon = t.icon;
