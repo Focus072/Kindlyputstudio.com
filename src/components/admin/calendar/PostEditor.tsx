@@ -43,7 +43,7 @@ export function PostEditor({ post, defaultDate, clients, onClose }: { post: CalP
           {post && <input type="hidden" name="id" value={post.id} />}
           <label className="block">
             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Client</span>
-            <select name="client_id" defaultValue={post?.clientId ?? clients[0]?.id ?? ""} className={field}>
+            <select name="client_id" defaultValue={post ? (post.clientId ?? "") : (clients[0]?.id ?? "")} className={field}>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
