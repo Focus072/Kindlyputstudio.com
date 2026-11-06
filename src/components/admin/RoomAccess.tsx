@@ -106,13 +106,13 @@ export function RoomAccess({ roomId, mode, invites, requests }: Props) {
           ) : (
             <ul className="mt-3 flex flex-wrap gap-2">
               {invites.map((email) => (
-                <li key={email} className="flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm text-slate-700">
-                  {email}
+                <li key={email} className="flex min-w-0 max-w-full items-center gap-1 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm text-slate-700">
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{email}</span>
                   <button
                     type="button"
                     onClick={() => start(() => removeInvite(roomId, email))}
                     aria-label={`Remove ${email}`}
-                    className="flex size-6 items-center justify-center rounded-full hover:bg-slate-200"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 sm:size-6"
                   >
                     <X className="size-3.5" />
                   </button>

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Clock, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatTimecode } from "@/lib/format";
+import { useVisibleViewport } from "@/lib/visible-viewport";
 import type { RoomComment, RoomFile } from "@/lib/types";
 
 type Props = {
@@ -64,6 +65,7 @@ export function CommentSheet({ file, name, deliveredBy, timecode, onClose, onSen
   const tc = file?.kind === "video" && timecode != null && attachTime ? timecode : null;
   const earlier = file?.versions.filter((v) => v.comments.length > 0) ?? [];
   const listRef = useRef<HTMLDivElement>(null);
+  const viewport = useVisibleViewport(!!file);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -81,6 +83,7 @@ export function CommentSheet({ file, name, deliveredBy, timecode, onClose, onSen
       {file && (
         <motion.div
           className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-stretch sm:justify-end"
+          style={viewport}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -94,7 +97,7 @@ export function CommentSheet({ file, name, deliveredBy, timecode, onClose, onSen
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[85dvh] w-full flex-col rounded-t-3xl border border-room-border bg-room-surface text-room-fg shadow-2xl sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl"
+            className="flex max-h-[85%] w-full flex-col rounded-t-3xl border border-room-border bg-room-surface text-room-fg shadow-2xl sm:max-h-none sm:max-w-md sm:rounded-none sm:rounded-l-3xl"
           >
             <header className="flex items-center gap-3 border-b border-room-border p-4">
               {(file.thumbUrl ?? file.posterUrl) && (

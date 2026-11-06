@@ -36,6 +36,7 @@ export async function listShowcase(limit = 6): Promise<ShowcaseShoot[]> {
       .select("id, room_id, thumb_path, preview_path, sort_order")
       .in("room_id", rooms.map((r) => r.id))
       .eq("kind", "image")
+      .is("replaced_by", null)
       .not("thumb_path", "is", null)
       .order("sort_order");
 

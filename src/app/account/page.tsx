@@ -24,7 +24,7 @@ async function roomsFor(clientId: string): Promise<RoomCard[]> {
   if (ids.length === 0) return [];
   const [{ data: rooms }, { data: files }] = await Promise.all([
     db.from("rooms").select("*").in("id", ids).eq("status", "live"),
-    db.from("files").select("id, room_id, thumb_path, poster_path, sort_order").in("room_id", ids).order("sort_order"),
+    db.from("files").select("id, room_id, thumb_path, poster_path, sort_order").in("room_id", ids).is("replaced_by", null).order("sort_order"),
   ]);
   return (links ?? [])
     .map((l) => {
@@ -76,7 +76,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
           <img src={brand.logo.markOnDark} alt={brand.name} className="h-9 w-auto" />
         </Link>
         <form action="/auth/signout" method="post">
-          <button className="text-sm text-mist/70 hover:text-white">Sign out</button>
+          <button className="text-sm text-mist/70 hover:text-white max-sm:-my-2.5 max-sm:-mr-3 max-sm:px-3 max-sm:py-2.5">Sign out</button>
         </form>
       </header>
       <section className="mx-auto max-w-6xl px-5 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-6 sm:px-8 sm:pt-8">
