@@ -45,7 +45,7 @@ export async function getClientDetail(id: string) {
       .order("last_opened_at", { ascending: false }),
     db
       .from("activity")
-      .select("id, type, created_at, rooms(title), files(file_name)")
+      .select("id, type, created_at, room_id, rooms(title), files(file_name)")
       .eq("client_id", id)
       .order("created_at", { ascending: false })
       .limit(40),
@@ -66,6 +66,7 @@ export async function getClientDetail(id: string) {
       id: a.id as string,
       type: a.type as string,
       at: a.created_at as string,
+      roomId: (a.room_id as string | null) ?? null,
       room: one(a.rooms as Named | Named[] | null)?.title ?? null,
       file: one(a.files as Named | Named[] | null)?.file_name ?? null,
     })),

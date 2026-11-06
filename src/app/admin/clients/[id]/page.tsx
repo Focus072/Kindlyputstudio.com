@@ -25,7 +25,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
   const activity: ((typeof detail.activity)[number] & { times: number })[] = [];
   for (const a of detail.activity) {
     const last = activity[activity.length - 1];
-    if (last && a.type === "view" && last.type === "view" && last.room === a.room && !a.file && !last.file) last.times++;
+    if (last && a.type === "view" && last.type === "view" && last.roomId === a.roomId && !a.file && !last.file) last.times++;
     else activity.push({ ...a, times: 1 });
   }
 
