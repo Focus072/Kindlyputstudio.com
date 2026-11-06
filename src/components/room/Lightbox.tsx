@@ -1,10 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Download, Lock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RoomFile } from "@/lib/types";
 import { ReviewButtons } from "./ReviewButtons";
+import { SaveButton } from "./SaveButton";
 import { Watermark } from "./Watermark";
 
 type Props = {
@@ -95,13 +96,11 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
             </p>
             <div className="flex items-center gap-2">
               {canDownload ? (
-                <a
+                <SaveButton
+                  key={file.id}
                   href={`/r/${slug}/download/${file.id}`}
                   className="inline-flex h-9 items-center gap-2 rounded-full border border-white/15 px-4 text-sm hover:bg-white/10"
-                >
-                  <Download className="size-4" />
-                  <span className="hidden sm:inline">Download</span>
-                </a>
+                />
               ) : (
                 !older && (
                   <span

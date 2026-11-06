@@ -6,9 +6,13 @@ import { canDownload, getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
 
-/** Sends the client to a 2 minute signed link for the full resolution original. */
+/**
+ * Sends the client to a 2 minute signed link for the full resolution original.
+ * With ?as=json it returns that link instead, so phones can fetch the file and
+ * hand it to the share sheet ("Save Image" / "Save Video" straight to Photos).
+ */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/r/[slug]/download/[fileId]">,
 ) {
   const { slug, fileId } = await ctx.params;
@@ -16,13 +20,14 @@ export async function GET(
   if (!room || !isRoomOpen(room)) return new Response("Not found", { status: 404 });
   const client = await getClientUser();
   const admin = await isAdmin();
-  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
-  if (!admin && client && !(await clientMayOpen(room, client))) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
+  const asJson = req.nextUrl.searchParams.get("as") === "json";
+  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, req.url), 302);
+  if (!admin && client && !(await clientMayOpen(room, client))) return Response.redirect(new URL(`/r/${slug}`, req.url), 302);
 
   const db = supabaseAdmin();
   const { data: file } = await db
     .from("files")
-    .select("id, original_path, file_name, review_status")
+    .select("id, original_path, file_name, mime_type, review_status")
     .eq("id", fileId)
     .eq("room_id", room.id)
     .maybeSingle();
@@ -43,6 +48,12 @@ export async function GET(
 
   if (client) {
     await db.from("activity").insert({ room_id: room.id, file_id: file.id, type: "download", client_id: client.id, actor_name: client.name });
+  }
+  if (asJson) {
+    return Response.json(
+      { url: data.signedUrl, name: file.file_name, type: file.mime_type },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
   return Response.redirect(data.signedUrl, 302);
 }
