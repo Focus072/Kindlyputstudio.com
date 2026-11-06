@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { unreadActivityCount } from "@/lib/activity";
 import { requireAdmin } from "@/lib/auth";
 import { getStudioSettings } from "@/lib/settings";
 import { logout } from "@/app/login/actions";
-import { AdminTabBar, AdminTopNav } from "@/components/admin/AdminNav";
+import { AdminSettingsLink, AdminTabBar, AdminTopNav } from "@/components/admin/AdminNav";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
 
@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   await requireAdmin();
   const [studio, unread] = await Promise.all([getStudioSettings(), unreadActivityCount()]);
   return (
-    <div className="min-h-dvh bg-[#eceef0]">
+    <div className="kp-admin min-h-dvh bg-[#eceef0]">
       <header className="sticky top-0 z-20 bg-ink/95 pt-[env(safe-area-inset-top)] text-white backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 lg:px-8 2xl:max-w-7xl">
           <Link href="/admin" className="flex items-center gap-3">
@@ -22,13 +22,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </Link>
           <AdminTopNav unread={unread} />
           <div className="flex items-center">
-          <Link
-            href="/admin/settings"
-            aria-label="Settings"
-            className="inline-flex size-9 items-center justify-center rounded-full text-mist/70 hover:bg-white/8 hover:text-white sm:hidden"
-          >
-            <Settings className="size-5" />
-          </Link>
+          <AdminSettingsLink />
           <form action={logout}>
             <button
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-mist/70 hover:bg-white/8 hover:text-white"
