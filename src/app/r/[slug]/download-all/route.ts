@@ -50,12 +50,25 @@ export async function GET(
     return candidate;
   }
 
+  // Start each file's request a few files ahead, so the zip never waits on a
+  // fresh connection between files. Bodies are pulled one at a time, in order.
+  const AHEAD = 4;
+  const pending = new Map<number, Promise<Response | null>>();
+  function request(i: number) {
+    const url = signed![i]?.signedUrl;
+    if (!url || pending.has(i)) return;
+    pending.set(i, fetch(url).catch(() => null));
+  }
+
   async function* entries() {
     for (let i = 0; i < files.length; i++) {
-      const url = signed![i]?.signedUrl;
-      if (!url) continue;
-      const res = await fetch(url);
-      if (!res.ok || !res.body) continue;
+      for (let j = i; j < Math.min(files.length, i + AHEAD); j++) request(j);
+      const res = await (pending.get(i) ?? Promise.resolve(null));
+      pending.delete(i);
+      if (!res || !res.ok || !res.body) {
+        await res?.body?.cancel().catch(() => {});
+        continue;
+      }
       // Files in a set go into a folder named after it.
       const folder = files[i].category?.trim().replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60);
       yield { name: uniqueName(folder ? `${folder}/${files[i].file_name}` : files[i].file_name), input: res };
