@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { after } from "next/server";
 import { getTeamMember } from "@/lib/ai-team/adapter";
 import {
   addMessage, approvedHandoffsFor, getCampaign, getClient, getConversation,
@@ -56,6 +57,8 @@ export async function POST(req: Request) {
 
   const encoder = new TextEncoder();
   let clientGone = false;
+  let markDone = () => {};
+  const done = new Promise<void>((resolve) => (markDone = resolve));
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       // If the browser goes away mid-reply (tab closed, page changed), keep
@@ -118,12 +121,17 @@ export async function POST(req: Request) {
         } catch {
           // already closed because the browser left
         }
+        markDone();
       }
     },
     cancel() {
       clientGone = true;
     },
   });
+
+  // Keep the function running until the reply is finished and saved, even if
+  // the browser disconnects first (the platform may otherwise stop it).
+  after(() => done);
 
   return new Response(stream, {
     headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" },
