@@ -131,6 +131,7 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
         bufferId: p.id,
         channelId: p.channelId,
         media,
+        reminder: (p.schedulingType ?? "").toLowerCase() === "notification",
       });
     }
     posts.sort((a, b) => a.at.localeCompare(b.at));

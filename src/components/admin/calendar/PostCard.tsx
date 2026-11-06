@@ -20,6 +20,8 @@ export function PostCard({ post, color, clientName, onEdit, onDuplicate }: { pos
   const [open, setOpen] = useState(false);
   const long = post.caption.length > 160;
   const platform = platformInfo(post.platform);
+  // A reminder post is "sent" once Buffer pings the phone, even if nobody finished it.
+  const reminded = post.status === "posted" && post.reminder;
 
   return (
     <article className="overflow-hidden rounded-2xl ring-1 ring-slate-200" style={{ boxShadow: `inset 4px 0 0 ${color}` }}>
@@ -43,7 +45,9 @@ export function PostCard({ post, color, clientName, onEdit, onDuplicate }: { pos
               <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
               <span className="truncate">{clientName}</span>
             </p>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone[post.status]}`}>{STATUS_LABEL[post.status]}</span>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${reminded ? "bg-amber-100 text-amber-800" : statusTone[post.status]}`}>
+              {reminded ? "Reminder sent" : STATUS_LABEL[post.status]}
+            </span>
           </div>
           <p className="mt-0.5 truncate text-xs text-slate-500">
             {timeLabel(post.at)} · {platform.label}
@@ -70,6 +74,13 @@ export function PostCard({ post, color, clientName, onEdit, onDuplicate }: { pos
         </p>
       )}
 
+      {reminded && (
+        <p className="mx-4 mb-3 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <CircleAlert className="mt-px size-3.5 shrink-0" />
+          <span>Buffer only sent a phone reminder for this one. It&rsquo;s live only if someone finished posting it in the {platform.label} app.</span>
+        </p>
+      )}
+
       {(onEdit || onDuplicate || post.link) && (
         <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2.5">
           {onEdit && (
@@ -84,7 +95,7 @@ export function PostCard({ post, color, clientName, onEdit, onDuplicate }: { pos
           )}
           {post.link && (
             <a href={post.link} target="_blank" rel="noreferrer" className={btn}>
-              <ExternalLink className="size-3.5" /> View post
+              <ExternalLink className="size-3.5" /> {reminded ? `Check on ${platform.label}` : "View post"}
             </a>
           )}
         </div>
