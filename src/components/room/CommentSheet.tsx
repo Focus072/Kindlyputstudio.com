@@ -162,7 +162,7 @@ export function CommentSheet({ file, name, deliveredBy, timecode, onClose, onSen
                 >
                   <Clock className="size-3" /> {formatTimecode(timecode)}
                 </button>
-                {attachTime ? "Your note will point to this moment." : "Tap to pin your note to this moment."}
+                {attachTime ? "Your note will point to this moment." : <><span className="pointer-fine:hidden">Tap</span><span className="hidden pointer-fine:inline">Click</span> to pin your note to this moment.</>}
               </div>
             )}
 

@@ -20,7 +20,14 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const detail = await getClientDetail(id);
   if (!detail) notFound();
-  const { client, rooms, activity } = detail;
+  const { client, rooms } = detail;
+  // Repeat opens of the same room back to back read as one line with a count.
+  const activity: ((typeof detail.activity)[number] & { times: number })[] = [];
+  for (const a of detail.activity) {
+    const last = activity[activity.length - 1];
+    if (last && a.type === "view" && last.type === "view" && last.room === a.room && !a.file && !last.file) last.times++;
+    else activity.push({ ...a, times: 1 });
+  }
 
   return (
     <main className="space-y-10">
@@ -75,6 +82,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
                   {verbs[a.type] ?? a.type} {a.file ? <strong>{a.file}</strong> : null}
                   {a.file && a.room ? " in " : ""}
                   {a.room ? <span className="text-slate-500">{a.room}</span> : null}
+                  {a.times > 1 ? <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">{a.times}×</span> : null}
                 </span>
                 <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.at)}</span>
               </li>

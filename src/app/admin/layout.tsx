@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="min-h-dvh bg-[#eceef0]">
       <header className="sticky top-0 z-20 bg-ink/95 pt-[env(safe-area-inset-top)] text-white backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3 lg:px-8 2xl:max-w-7xl">
           <Link href="/admin" className="flex items-center gap-3">
             <img src={studio.markOnDark} alt={studio.name} className="h-8 w-auto" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-mist/80 sm:max-lg:hidden">Studio</span>
@@ -41,7 +41,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-6xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-5 sm:py-8">{children}</div>
+      <div className="mx-auto max-w-6xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-5 sm:py-8 lg:px-8 lg:pb-16 lg:pt-10 2xl:max-w-7xl">{children}</div>
       <AdminTabBar unread={unread} />
     </div>
   );

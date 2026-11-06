@@ -219,7 +219,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     >
       <RoomBackdrop />
 
-      <header className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 sm:pt-[calc(1.75rem+env(safe-area-inset-top))]">
+      <header className="mx-auto flex max-w-7xl 2xl:max-w-[1600px] items-center justify-between gap-4 px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8 sm:pt-[calc(1.75rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-3" aria-label={brand.name}>
           {adminRoomId && (
             <a
@@ -258,7 +258,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-5 pb-24 sm:px-8">
+      <main className="mx-auto max-w-7xl 2xl:max-w-[1600px] px-5 pb-24 sm:px-8">
         <section className="grid gap-8 pt-8 sm:gap-10 sm:pt-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-14 lg:pt-20">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
@@ -380,7 +380,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               ) : (
                 <>
                   {files.length} {files.length === 1 ? "file" : "files"}
-                  <span className="hidden sm:inline"> · tap ✓ to approve</span>
+                  <span className="hidden sm:inline pointer-fine:hidden"> · tap ✓ to approve</span>
+                  <span className="hidden sm:pointer-fine:inline"> · click ✓ to approve</span>
                 </>
               )}
             </p>
@@ -419,8 +420,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             <ul
               className={
                 natural
-                  ? "columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 lg:gap-5"
-                  : "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5"
+                  ? "columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 lg:gap-5 2xl:columns-5"
+                  : "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5 2xl:grid-cols-5"
               }
             >
               {visible.map((file, i) => (
@@ -440,7 +441,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
         </section>
       </main>
 
-      <footer className="mx-auto max-w-7xl px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] font-typewriter text-xs text-room-muted sm:px-8">
+      <footer className="mx-auto max-w-7xl 2xl:max-w-[1600px] px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] font-typewriter text-xs text-room-muted sm:px-8">
         Delivered with care by {room.deliveredBy}.
       </footer>
 
