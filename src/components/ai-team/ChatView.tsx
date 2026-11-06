@@ -39,14 +39,27 @@ export function ChatView(props: {
 
   // A fresh copy from the server (after router.refresh()) replaces the local
   // bubbles. If the reply didn't make it into the database, its note stays.
+  // The composer stays locked until then, so a quick follow-up can't be
+  // wiped by the previous turn's refresh.
   if (props.initial !== seenInitial) {
     setSeenInitial(props.initial);
     if (awaitingSaved) {
       setAwaitingSaved(false);
+      setBusy(false);
       const last = props.initial[props.initial.length - 1];
       setLocal(last?.role === "user" ? local.filter((m) => m.role === "assistant").map((m) => ({ ...m, note: "not saved" })) : []);
     }
   }
+
+  // Safety net: if the refreshed history never arrives, free the composer.
+  useEffect(() => {
+    if (!awaitingSaved) return;
+    const t = setTimeout(() => {
+      setAwaitingSaved(false);
+      setBusy(false);
+    }, 15000);
+    return () => clearTimeout(t);
+  }, [awaitingSaved]);
 
   const messages = [...props.initial, ...local];
   useEffect(() => {
@@ -100,11 +113,12 @@ export function ChatView(props: {
       setReply((c) => c + "\n\n[Connection lost. This reply may not have been saved.]");
     } finally {
       setLocal((l) => l.map((x) => ({ ...x, pending: false })));
-      setBusy(false);
       if (reachedServer) {
-        // Reload the saved history; the check above swaps it in.
+        // Reload the saved history; the check above swaps it in and frees the composer.
         setAwaitingSaved(true);
         router.refresh();
+      } else {
+        setBusy(false);
       }
     }
   }
