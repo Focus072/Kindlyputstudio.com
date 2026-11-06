@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Inbox, LayoutGrid, Plus, Settings, UsersRound } from "lucide-react";
+import { Bell, CalendarDays, Inbox, LayoutGrid, Plus, Settings, UsersRound } from "lucide-react";
 
 const tabs = [
   { href: "/admin", label: "Rooms", icon: LayoutGrid, match: (p: string) => p === "/admin" || (p.startsWith("/admin/rooms/") && p !== "/admin/rooms/new") },
   { href: "/admin/rooms/new", label: "New room", icon: Plus, match: (p: string) => p === "/admin/rooms/new" },
+  { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, match: (p: string) => p.startsWith("/admin/calendar") },
   { href: "/admin/activity", label: "Activity", icon: Bell, match: (p: string) => p.startsWith("/admin/activity") },
   { href: "/admin/clients", label: "Clients", icon: UsersRound, match: (p: string) => p.startsWith("/admin/clients") },
   { href: "/admin/leads", label: "Leads", icon: Inbox, match: (p: string) => p.startsWith("/admin/leads") },
   { href: "/admin/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/admin/settings") },
 ];
 
-/** Settings lives in the header on phones, so the tab bar keeps five slots. */
+/** Settings lives in the header on phones, so the tab bar keeps six slots. */
 const phoneTabs = tabs.filter((t) => t.href !== "/admin/settings");
 
 function Badge({ n, className = "" }: { n: number; className?: string }) {
@@ -56,7 +57,7 @@ export function AdminTabBar({ unread = 0 }: { unread?: number }) {
       aria-label="Admin"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {phoneTabs.map((t) => {
           const active = t.match(path);
           const Icon = t.icon;

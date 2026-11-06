@@ -69,6 +69,25 @@ edited in **Admin > Settings**. Anything left blank falls back to
 - **Room themes:** edit or add presets in `src/config/themes.ts`. Each room
   picks a preset and its own accent color from the admin.
 
+## Content calendar
+
+Admin > Calendar plans and publishes social posts for every client. Buffer does
+the actual publishing; this app is the place you work in.
+
+1. Run `supabase/migrations/0005_content_calendar.sql`.
+2. In Buffer, connect each client's accounts, then create an API key
+   (Settings > API). Paste it in Calendar > Settings.
+3. Press "Make a client for each channel" (or add clients by hand) and pick a
+   color for each one.
+4. New post: choose accounts, add photos or a video, write the caption, then
+   pick a time, the next queue slot, post now, or save a draft. Edit, delete,
+   duplicate, or drag a post to another day right on the calendar.
+
+Photos and videos for posts are stored in the public `previews` bucket under
+`social/`, so the networks can fetch them. Times use
+`NEXT_PUBLIC_STUDIO_TIMEZONE` (default America/Los_Angeles). Plans (ideas that
+are not in Buffer) stay on the calendar only.
+
 ## How it fits together
 
 | Folder | What lives there |
