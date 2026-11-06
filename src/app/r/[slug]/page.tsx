@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RoomView } from "@/components/room/RoomView";
-import { brand } from "@/config/brand";
+import { clientMayOpen, myAccessRequest } from "@/lib/access";
 import { isAdmin } from "@/lib/auth";
 import { getClientUser, recordClientVisit } from "@/lib/client-auth";
-import { getFiles, getRoomBySlug, isRoomExpired, isRoomOpen, loadRoomBundle } from "@/lib/data";
+import { currentFiles, getFiles, getRoomBySlug, isRoomExpired, isRoomOpen, loadRoomBundle } from "@/lib/data";
 import { supabasePublicConfig } from "@/lib/env";
+import { getStudioSettings } from "@/lib/settings";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+/** Whether anyone reviewed or commented after the last "Send feedback". */
+async function hasChangesSince(roomId: string, since: string) {
+  const { count } = await supabaseAdmin()
+    .from("activity")
+    .select("id", { count: "exact", head: true })
+    .eq("room_id", roomId)
+    .in("type", ["approve", "decline", "reset", "comment"])
+    .gt("created_at", since);
+  return (count ?? 0) > 0;
+}
 import { previewUrl } from "@/lib/storage";
+import { RequestAccess } from "./RequestAccess";
 import { RoomClosed } from "./RoomClosed";
 
 export async function generateMetadata({ params }: PageProps<"/r/[slug]">): Promise<Metadata> {
@@ -18,8 +32,9 @@ export async function generateMetadata({ params }: PageProps<"/r/[slug]">): Prom
   // Link previews in Messages, WhatsApp, and email show the room's cover photo.
   // This is the same teaser image the sign-up screen already shows to anyone with the link.
   let cover: string | null = null;
-  if (isRoomOpen(room)) {
-    const files = await getFiles(room.id);
+  // Guest-list rooms keep their cover private too.
+  if (isRoomOpen(room) && room.access_mode !== "invited") {
+    const files = currentFiles(await getFiles(room.id));
     const hero = files.find((f) => f.id === room.hero_file_id) ?? files[0];
     cover = previewUrl(hero?.thumb_path ?? hero?.poster_path ?? null);
   }
@@ -38,8 +53,8 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
   const room = await getRoomBySlug(slug);
   if (!room) notFound();
 
-  const [admin, client] = await Promise.all([isAdmin(), getClientUser()]);
-  if (!isRoomOpen(room) && !admin) return <RoomClosed room={room} expired={isRoomExpired(room)} />;
+  const [admin, client, studio] = await Promise.all([isAdmin(), getClientUser(), getStudioSettings()]);
+  if (!isRoomOpen(room) && !admin) return <RoomClosed room={room} expired={isRoomExpired(room)} studio={studio} />;
 
   const roomProps = {
     slug: room.slug,
@@ -48,14 +63,22 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
     deliveredBy: room.delivered_by,
     themePreset: room.theme_preset,
     accentColor: room.accent_color,
+    layout: room.layout ?? "grid",
+    watermark: !!room.watermark,
+    intro: room.intro ?? null,
+    downloads: room.downloads ?? "on",
+    paymentUrl: room.payment_url ?? null,
+    paymentStatus: room.payment_status ?? "none",
+    feedbackSentAt: room.feedback_sent_at ?? null,
   };
-  const brandProps = { name: brand.name, mark: brand.logo.markOnDark, poweredByLabel: brand.poweredByLabel };
+  const brandProps = { name: studio.name, mark: studio.markOnDark, poweredByLabel: studio.poweredByLabel };
 
   // Not signed in: show the room shell behind the create-account popup.
   // No files or download links are sent until the client has an account.
   if (!client && !admin) {
-    const files = await getFiles(room.id);
+    const files = currentFiles(await getFiles(room.id));
     const hero = files.find((f) => f.id === room.hero_file_id) ?? files[0];
+    const showTeaser = room.access_mode !== "invited";
     const { url, key } = supabasePublicConfig();
     return (
       <RoomView
@@ -69,19 +92,27 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
           supabaseUrl: url,
           supabaseKey: key,
           fileCount: files.length,
-          teaserUrl: previewUrl(hero?.thumb_path ?? hero?.poster_path ?? null),
+          teaserUrl: showTeaser ? previewUrl(hero?.thumb_path ?? hero?.poster_path ?? null) : null,
           authError: sp.auth_error === "confirmed" ? "confirmed" : sp.auth_error === "1" ? "1" : null,
         }}
       />
     );
   }
 
+  // Guest-list rooms: signed in, but not invited, so ask the studio.
+  if (client && !admin && !(await clientMayOpen(room, client))) {
+    await recordClientVisit(client);
+    const status = await myAccessRequest(room.id, client.id);
+    return <RequestAccess room={room} studio={studio} email={client.email} initialStatus={status} />;
+  }
+
   if (client) await recordClientVisit(client, room.id);
+  const unsentChanges = room.feedback_sent_at ? await hasChangesSince(room.id, room.feedback_sent_at) : false;
   const { files, stats, hero } = await loadRoomBundle(room);
 
   return (
     <RoomView
-      room={roomProps}
+      room={{ ...roomProps, unsentChanges }}
       files={files}
       heroId={hero?.id ?? null}
       initialViews={stats.views}

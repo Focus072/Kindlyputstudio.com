@@ -1,5 +1,6 @@
 "use server";
 
+import { clientFingerprint, rateLimit } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type LeadState = { ok?: boolean; error?: string } | undefined;
@@ -20,6 +21,9 @@ export async function submitLead(_prev: LeadState, fd: FormData): Promise<LeadSt
   if (!name) return { error: "Please add your name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Please add a valid email so we can reply." };
   const service = field(fd, "service", 60);
+  if (!(await rateLimit(`lead:${await clientFingerprint()}`, 5, 3600))) {
+    return { error: "We already have your message. We will be in touch soon." };
+  }
 
   const { error } = await supabaseAdmin()
     .from("leads")

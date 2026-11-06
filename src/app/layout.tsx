@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Courier_Prime, Inter } from "next/font/google";
 import { brand } from "@/config/brand";
+import { Telemetry } from "@/components/Telemetry";
 import "./globals.css";
 
 // KPS brand type: Barlow Condensed ExtraBold for headlines, Inter for body.
@@ -43,7 +44,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         } as React.CSSProperties
       }
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <Telemetry />
+      </body>
     </html>
   );
 }

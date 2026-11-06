@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET, previewUrl } from "@/lib/storage";
 import type {
   CommentRow,
+  RoomComment,
   FileRow,
   RoomFile,
   RoomRow,
@@ -103,37 +104,83 @@ async function signedVideoUrls(files: FileRow[]): Promise<Map<string, string>> {
   return map;
 }
 
+/** Files the client sees: the newest version of each. */
+export function currentFiles(files: FileRow[]): FileRow[] {
+  return files.filter((f) => !f.replaced_by);
+}
+
+/** Whether the room's download and payment settings let the client save this file. */
+export function canDownload(
+  room: Pick<RoomRow, "downloads" | "payment_status">,
+  file: Pick<FileRow, "review_status">,
+): boolean {
+  if (room.payment_status === "due") return false;
+  if (room.downloads === "off") return false;
+  if (room.downloads === "approved") return file.review_status === "approved";
+  return true;
+}
+
 export function toRoomFiles(
+  room: Pick<RoomRow, "downloads" | "payment_status">,
   files: FileRow[],
   comments: CommentRow[],
   videoUrls: Map<string, string>,
 ): RoomFile[] {
-  const byFile = new Map<string, CommentRow[]>();
+  const byFile = new Map<string, RoomComment[]>();
   for (const c of comments) {
     const list = byFile.get(c.file_id) ?? [];
-    list.push(c);
-    byFile.set(c.file_id, list);
-  }
-  return files.map((f) => ({
-    id: f.id,
-    kind: f.kind,
-    fileName: f.file_name,
-    width: f.width,
-    height: f.height,
-    thumbUrl: previewUrl(f.thumb_path),
-    previewUrl: previewUrl(f.preview_path),
-    posterUrl: previewUrl(f.poster_path),
-    videoUrl: videoUrls.get(f.id) ?? null,
-    status: f.review_status,
-    reviewedBy: f.reviewed_by,
-    comments: (byFile.get(f.id) ?? []).map((c) => ({
+    list.push({
       id: c.id,
       author: c.author_name,
       body: c.body,
       fromAgency: c.from_agency,
       createdAt: c.created_at,
-    })),
-  }));
+      timecode: c.timecode ?? null,
+    });
+    byFile.set(c.file_id, list);
+  }
+  const replacedBy = new Map<string, FileRow>();
+  for (const f of files) if (f.replaced_by) replacedBy.set(f.replaced_by, f);
+
+  return currentFiles(files).map((f) => {
+    const versions = [];
+    let prev = replacedBy.get(f.id);
+    const seen = new Set<string>([f.id]);
+    while (prev && !seen.has(prev.id)) {
+      seen.add(prev.id);
+      versions.push({
+        id: prev.id,
+        version: prev.version ?? 1,
+        thumbUrl: previewUrl(prev.thumb_path),
+        previewUrl: previewUrl(prev.preview_path),
+        posterUrl: previewUrl(prev.poster_path),
+        videoUrl: videoUrls.get(prev.id) ?? null,
+        status: prev.review_status,
+        createdAt: prev.created_at,
+        comments: byFile.get(prev.id) ?? [],
+      });
+      prev = replacedBy.get(prev.id);
+    }
+    return {
+      id: f.id,
+      kind: f.kind,
+      fileName: f.file_name,
+      caption: f.caption ?? null,
+      category: f.category?.trim() || null,
+      version: f.version ?? 1,
+      versions,
+      canDownload: canDownload(room, f),
+      width: f.width,
+      height: f.height,
+      thumbUrl: previewUrl(f.thumb_path),
+      previewUrl: previewUrl(f.preview_path),
+      posterUrl: previewUrl(f.poster_path),
+      videoUrl: videoUrls.get(f.id) ?? null,
+      status: f.review_status,
+      reviewedBy: f.reviewed_by,
+      comments: byFile.get(f.id) ?? [],
+    };
+  });
 }
 
 /** Everything the delivery room or the admin room page needs, in one call. */
@@ -144,8 +191,10 @@ export async function loadRoomBundle(room: RoomRow) {
     countViews(room.id),
   ]);
   const videoUrls = await signedVideoUrls(files);
-  const roomFiles = toRoomFiles(files, comments, videoUrls);
-  const stats = computeStats(files, comments.length, views);
+  const roomFiles = toRoomFiles(room, files, comments, videoUrls);
+  const current = currentFiles(files);
+  const currentIds = new Set(current.map((f) => f.id));
+  const stats = computeStats(current, comments.filter((c) => currentIds.has(c.file_id)).length, views);
   const hero =
     roomFiles.find((f) => f.id === room.hero_file_id) ??
     roomFiles.find((f) => f.kind === "image") ??
@@ -161,7 +210,7 @@ export async function listRoomsWithStats(): Promise<RoomSummary[]> {
   const [{ data: rooms, error }, { data: files, error: fErr }, { data: comments, error: cErr }, { data: views, error: vErr }] =
     await Promise.all([
       db.from("rooms").select("*").order("created_at", { ascending: false }),
-      db.from("files").select("id, room_id, review_status, thumb_path, poster_path, kind, sort_order").order("sort_order"),
+      db.from("files").select("id, room_id, review_status, thumb_path, poster_path, kind, sort_order").is("replaced_by", null).order("sort_order"),
       db.from("comments").select("room_id"),
       db.from("activity").select("room_id").eq("type", "view"),
     ]);

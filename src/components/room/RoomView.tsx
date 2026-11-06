@@ -1,9 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Download, Play, UserRound } from "lucide-react";
+import { ArrowLeft, Check, CreditCard, Download, Lock, Play, Send, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { addComment, recordView, setReview } from "@/app/r/[slug]/actions";
+import { addComment, recordView, setReview, submitFeedback } from "@/app/r/[slug]/actions";
 import { themeVars } from "@/config/themes";
 import type { RoomFile, RoomStats } from "@/lib/types";
 import { VerifiedDot } from "@/components/ui/VerifiedDot";
@@ -13,6 +13,7 @@ import { Lightbox } from "./Lightbox";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { RoomBackdrop } from "./RoomBackdrop";
 import { StatsLine } from "./StatsLine";
+import { Watermark } from "./Watermark";
 
 export type RoomViewProps = {
   room: {
@@ -22,6 +23,15 @@ export type RoomViewProps = {
     deliveredBy: string;
     themePreset: string;
     accentColor: string | null;
+    layout?: "grid" | "natural";
+    watermark?: boolean;
+    intro?: string | null;
+    downloads?: "on" | "approved" | "off";
+    paymentUrl?: string | null;
+    paymentStatus?: "none" | "due" | "paid";
+    feedbackSentAt?: string | null;
+    /** Reviews or notes saved after the last "Send feedback". */
+    unsentChanges?: boolean;
   };
   files: RoomFile[];
   heroId: string | null;
@@ -65,8 +75,15 @@ function titleSize(headline: string) {
 export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
+  const [sheetTimecode, setSheetTimecode] = useState<number | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [startAt, setStartAt] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [activeSet, setActiveSet] = useState<string | null>(null);
+  const [sentAt, setSentAt] = useState<string | null>(room.feedbackSentAt ?? null);
+  /** Reviews or notes since the last "Send feedback". */
+  const [changedSinceSend, setChangedSinceSend] = useState(room.unsentChanges ? 1 : 0);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (preview || !viewer) return;
@@ -99,15 +116,56 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
   const hero = files.find((f) => f.id === heroId) ?? files.find((f) => f.kind === "image") ?? files[0];
   const sheetFile = files.find((f) => f.id === sheetFileId) ?? null;
+  const watermark = room.watermark ? brand.name : null;
+  const natural = room.layout === "natural";
+
+  // Sets: tabs appear once files are sorted into two or more groups.
+  const sets = useMemo(() => {
+    const names: string[] = [];
+    for (const f of files) if (f.category && !names.includes(f.category)) names.push(f.category);
+    const hasLoose = files.some((f) => !f.category);
+    return names.length >= 2 || (names.length === 1 && hasLoose) ? names : [];
+  }, [files]);
+  const visible = activeSet && sets.includes(activeSet) ? files.filter((f) => f.category === activeSet) : files;
+
+  const paymentDue = room.paymentStatus === "due";
+  const downloadable = files.filter((f) => f.canDownload).length;
+  const reviewed = stats.approved + stats.changes;
+  const canSubmit = !!viewer && !preview && files.length > 0;
+  const showFeedbackBar = canSubmit && (changedSinceSend > 0 || (!sentAt && reviewed > 0));
+
+  async function sendFeedback() {
+    if (sending) return;
+    setSending(true);
+    const res = await submitFeedback(room.slug).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
+    setSending(false);
+    if (!res.ok) {
+      setToast(res.error);
+      return;
+    }
+    setSentAt(res.data?.sentAt ?? new Date().toISOString());
+    setChangedSinceSend(0);
+    setToast(`Sent. ${room.deliveredBy} has your feedback.`);
+  }
 
   function patchFile(id: string, patch: Partial<RoomFile>) {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }
 
+  /** Mirrors canDownload() on the server, so the lock updates as the client reviews. */
+  function downloadableAs(status: RoomFile["status"]) {
+    if (room.paymentStatus === "due" || room.downloads === "off") return false;
+    return room.downloads === "approved" ? status === "approved" : true;
+  }
+
   async function review(file: RoomFile, status: "approved" | "changes") {
     const next = file.status === status ? "pending" : status;
-    const before = { status: file.status, reviewedBy: file.reviewedBy };
-    patchFile(file.id, { status: next, reviewedBy: next === "pending" ? null : viewer?.name ?? null });
+    const before = { status: file.status, reviewedBy: file.reviewedBy, canDownload: file.canDownload };
+    patchFile(file.id, {
+      status: next,
+      reviewedBy: next === "pending" ? null : viewer?.name ?? null,
+      canDownload: downloadableAs(next),
+    });
     const res = await setReview({ slug: room.slug, fileId: file.id, status: next }).catch(() => ({
       ok: false as const,
       error: "Connection lost. Please try again.",
@@ -115,28 +173,42 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     if (!res.ok) {
       patchFile(file.id, before);
       setToast(res.error);
+    } else {
+      setChangedSinceSend((n) => n + 1);
     }
   }
 
-  function openComments(file: RoomFile) {
+  function openComments(file: RoomFile, timecode: number | null = null) {
+    setSheetTimecode(timecode);
     setSheetFileId(file.id);
   }
 
-  async function sendComment(body: string): Promise<boolean> {
+  /** Opens a file in the viewer, optionally at a point in its video. */
+  function openFile(file: RoomFile, at: number | null = null) {
+    setStartAt(at);
+    const i = visible.findIndex((f) => f.id === file.id);
+    if (i >= 0) setLightboxIndex(i);
+    else {
+      setActiveSet(null);
+      setLightboxIndex(files.findIndex((f) => f.id === file.id));
+    }
+  }
+
+  async function sendComment(body: string, timecode: number | null): Promise<boolean> {
     if (!sheetFile) return false;
-    const res = await addComment({ slug: room.slug, fileId: sheetFile.id, body }).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
+    const res = await addComment({ slug: room.slug, fileId: sheetFile.id, body, timecode }).catch(() => ({ ok: false as const, error: "Connection lost. Please try again." }));
     if (!res.ok || !res.data) {
       setToast(res.ok ? "Could not post." : res.error);
       return false;
     }
     const { id, createdAt, author, fromAgency } = res.data;
     patchFile(sheetFile.id, {
-      comments: [...sheetFile.comments, { id, author, body, fromAgency, createdAt }],
+      comments: [...sheetFile.comments, { id, author, body, fromAgency, createdAt, timecode: res.data.timecode ?? null }],
     });
+    if (!preview) setChangedSinceSend((n) => n + 1);
     return true;
   }
 
-  const heroIndex = hero ? files.findIndex((f) => f.id === hero.id) : -1;
   const heroImage = hero ? hero.previewUrl ?? hero.posterUrl ?? hero.thumbUrl : null;
   const { date, headline } = splitTitle(room.title);
 
@@ -215,15 +287,43 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               {headline}
             </h1>
 
-            {files.length > 0 && (
+            {room.intro && (
+              <p className="mt-5 max-w-xl whitespace-pre-wrap text-[15px] leading-relaxed text-room-muted">{room.intro}</p>
+            )}
+
+            {files.length > 0 && paymentDue ? (
+              <div className="mt-7 sm:mt-8">
+                {room.paymentUrl ? (
+                  <a
+                    href={room.paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2.5 rounded-full bg-room-accent px-6 py-4 text-sm font-bold text-room-accent-fg shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 sm:inline-flex sm:w-auto sm:py-3.5"
+                  >
+                    <CreditCard className="size-4" />
+                    Pay invoice
+                  </a>
+                ) : null}
+                <p className="mt-3 flex items-center gap-2 font-typewriter text-xs text-room-muted">
+                  <Lock className="size-3.5" /> Downloads open once the invoice is paid.
+                </p>
+              </div>
+            ) : downloadable > 0 ? (
               <a
                 href={`/r/${room.slug}/download-all`}
                 className="mt-7 flex w-full items-center justify-center gap-2.5 rounded-full bg-room-accent px-6 py-4 sm:mt-8 sm:inline-flex sm:w-auto sm:py-3.5 text-sm font-bold text-room-accent-fg shadow-[0_10px_40px_-10px_var(--room-accent)] transition-transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 <Download className="size-4" />
-                Download all {files.length} {files.length === 1 ? "file" : "files"}
+                {downloadable === files.length
+                  ? `Download all ${files.length} ${files.length === 1 ? "file" : "files"}`
+                  : `Download ${downloadable} approved ${downloadable === 1 ? "file" : "files"}`}
               </a>
-            )}
+            ) : files.length > 0 && room.downloads !== "on" ? (
+              <p className="mt-7 flex items-center gap-2 font-typewriter text-xs text-room-muted sm:mt-8">
+                <Lock className="size-3.5" />
+                {room.downloads === "approved" ? "Approve a file to download it." : "Downloads open once the studio releases the final files."}
+              </p>
+            ) : null}
           </motion.div>
 
           <motion.div
@@ -235,7 +335,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             {heroImage ? (
               <button
                 type="button"
-                onClick={() => setLightboxIndex(heroIndex)}
+                onClick={() => hero && openFile(hero)}
+                onContextMenu={watermark ? (e) => e.preventDefault() : undefined}
                 className="group relative block aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-room-border bg-room-surface shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)]"
                 aria-label={`Open ${hero!.fileName}`}
               >
@@ -245,6 +346,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                   fetchPriority="high"
                   className="absolute inset-0 size-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.03]"
                 />
+                {watermark && <Watermark label={watermark} />}
                 <span className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/10" />
                 {hero!.kind === "video" && (
                   <span className="absolute inset-0 flex items-center justify-center">
@@ -271,23 +373,64 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               Deliverables
             </h2>
             <p className="font-typewriter text-xs text-room-muted">
-              {files.length} {files.length === 1 ? "file" : "files"}
-              <span className="hidden sm:inline"> · tap ✓ to approve</span>
+              {sentAt && changedSinceSend === 0 ? (
+                <span className="inline-flex items-center gap-1 text-approve">
+                  <Check className="size-3.5" /> Feedback sent
+                </span>
+              ) : (
+                <>
+                  {files.length} {files.length === 1 ? "file" : "files"}
+                  <span className="hidden sm:inline"> · tap ✓ to approve</span>
+                </>
+              )}
             </p>
           </div>
+
+          {sets.length > 0 && (
+            <div className="-mx-5 mb-6 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="Sets">
+              {[null, ...sets].map((name) => {
+                const active = (activeSet ?? null) === name;
+                const count = name ? files.filter((f) => f.category === name).length : files.length;
+                return (
+                  <button
+                    key={name ?? "all"}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveSet(name)}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                      active
+                        ? "border-room-accent bg-room-accent text-room-accent-fg"
+                        : "border-room-border bg-white/5 text-room-fg hover:bg-white/10"
+                    }`}
+                  >
+                    {name ?? "All"} <span className="font-typewriter text-xs opacity-70">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {files.length === 0 ? (
             <p className="py-16 text-center font-typewriter text-sm text-room-muted">
               Nothing here yet. We will let you know when your files are ready.
             </p>
           ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-              {files.map((file, i) => (
+            <ul
+              className={
+                natural
+                  ? "columns-2 gap-3 sm:gap-4 md:columns-3 lg:columns-4 lg:gap-5"
+                  : "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-5"
+              }
+            >
+              {visible.map((file, i) => (
                 <FileTile
                   key={file.id}
                   file={file}
                   index={i}
-                  onOpen={() => setLightboxIndex(i)}
+                  natural={natural}
+                  watermark={watermark}
+                  onOpen={() => openFile(file)}
                   onReview={(status) => review(file, status)}
                   onComment={() => openComments(file)}
                 />
@@ -302,21 +445,65 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
       </footer>
 
       <Lightbox
-        files={files}
+        files={visible}
         index={lightboxIndex}
         slug={room.slug}
-        onIndex={setLightboxIndex}
+        onIndex={(i) => {
+          setStartAt(null);
+          setLightboxIndex(i);
+        }}
         onReview={review}
         onComment={openComments}
+        startAt={startAt}
+        watermark={watermark}
+        alwaysDownload={!!adminRoomId}
       />
 
       <CommentSheet
         file={sheetFile}
         name={viewer?.name ?? room.deliveredBy}
         deliveredBy={room.deliveredBy}
+        timecode={sheetTimecode}
         onClose={() => setSheetFileId(null)}
         onSend={sendComment}
+        onSeek={(t) => {
+          if (!sheetFile) return;
+          setSheetFileId(null);
+          openFile(sheetFile, t);
+        }}
       />
+
+      <AnimatePresence>
+        {showFeedbackBar && lightboxIndex === null && !sheetFile && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-full border border-room-border bg-room-surface/95 py-2 pl-5 pr-2 shadow-2xl backdrop-blur-xl"
+          >
+            <p className="min-w-0 flex-1 truncate font-typewriter text-xs text-room-muted">
+              <span className="sm:hidden">
+                <span className="font-bold text-room-fg">{reviewed}</span> of {files.length} reviewed
+              </span>
+              <span className="hidden sm:inline">
+                <span className="font-bold text-approve">{stats.approved}</span> approved ·{" "}
+                <span className="font-bold text-decline">{stats.changes}</span> changes ·{" "}
+                <span className="font-bold text-room-fg">{stats.pending}</span> left
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={sendFeedback}
+              disabled={sending}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-room-accent px-4 py-2.5 text-sm font-bold text-room-accent-fg disabled:opacity-50"
+            >
+              <Send className="size-4" />
+              {sending ? "Sending…" : sentAt ? "Send update" : "Send feedback"}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {gate && (
         <>

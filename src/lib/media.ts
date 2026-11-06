@@ -47,8 +47,28 @@ async function toWebp(source: CanvasImageSource, w: number, h: number, max: numb
   );
 }
 
+function isHeic(file: File) {
+  return /image\/hei[cf]/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+}
+
+/** Chrome and Firefox cannot read iPhone HEIC photos, so decode them here first. */
+async function decodable(file: File): Promise<Blob> {
+  if (!isHeic(file)) return file;
+  try {
+    // Safari reads HEIC natively; only load the decoder when the browser cannot.
+    const probe = await createImageBitmap(file);
+    probe.close();
+    return file;
+  } catch {
+    const { default: heic2any } = await import("heic2any");
+    const out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 });
+    return Array.isArray(out) ? out[0] : out;
+  }
+}
+
 async function processImage(file: File): Promise<Processed> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const source = await decodable(file);
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   try {
     const { width, height } = bitmap;
     const [preview, thumb] = await Promise.all([

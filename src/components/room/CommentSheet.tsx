@@ -1,17 +1,47 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X } from "lucide-react";
+import { Clock, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { RoomFile } from "@/lib/types";
+import { formatTimecode } from "@/lib/format";
+import type { RoomComment, RoomFile } from "@/lib/types";
 
 type Props = {
   file: RoomFile | null;
   name: string;
   deliveredBy: string;
+  /** Where the video was paused when the sheet opened; attached to the note by default. */
+  timecode?: number | null;
   onClose: () => void;
-  onSend: (body: string) => Promise<boolean>;
+  onSend: (body: string, timecode: number | null) => Promise<boolean>;
+  /** Opens the video at this point. */
+  onSeek?: (seconds: number) => void;
 };
+
+function Bubble({ c, onSeek }: { c: RoomComment; onSeek?: (seconds: number) => void }) {
+  return (
+    <div
+      className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+        c.fromAgency ? "bg-room-accent/20 text-room-fg" : "ml-auto bg-white/8 text-room-fg"
+      }`}
+    >
+      <p className="mb-0.5 font-typewriter text-[11px] text-room-muted">
+        {c.author} · {timeAgo(c.createdAt)}
+      </p>
+      {c.timecode != null && (
+        <button
+          type="button"
+          onClick={() => onSeek?.(c.timecode!)}
+          disabled={!onSeek}
+          className="mb-1 inline-flex items-center gap-1 rounded-full bg-room-accent px-2 py-0.5 font-typewriter text-[11px] font-bold text-room-accent-fg disabled:opacity-70"
+        >
+          <Clock className="size-3" /> {formatTimecode(c.timecode)}
+        </button>
+      )}
+      <p className="whitespace-pre-wrap break-words">{c.body}</p>
+    </div>
+  );
+}
 
 function timeAgo(iso: string) {
   const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
@@ -23,9 +53,16 @@ function timeAgo(iso: string) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export function CommentSheet({ file, name, deliveredBy, onClose, onSend }: Props) {
+export function CommentSheet({ file, name, deliveredBy, timecode, onClose, onSend, onSeek }: Props) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  // Re-enabled for each new file or moment: only an explicit tap turns it off.
+  const momentKey = `${file?.id}:${timecode}`;
+  const [detached, setDetached] = useState<string | null>(null);
+  const attachTime = detached !== momentKey;
+  const setAttachTime = (fn: (v: boolean) => boolean) => setDetached(fn(attachTime) ? null : momentKey);
+  const tc = file?.kind === "video" && timecode != null && attachTime ? timecode : null;
+  const earlier = file?.versions.filter((v) => v.comments.length > 0) ?? [];
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,27 +121,47 @@ export function CommentSheet({ file, name, deliveredBy, onClose, onSend }: Props
             </header>
 
             <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+              {earlier.map((v) => (
+                <div key={v.id} className="space-y-3 opacity-70">
+                  <p className="text-center font-typewriter text-[11px] uppercase tracking-widest text-room-muted">
+                    Notes on version {v.version}
+                  </p>
+                  {v.comments.map((c) => (
+                    <Bubble key={c.id} c={c} />
+                  ))}
+                </div>
+              ))}
+              {earlier.length > 0 && (
+                <p className="text-center font-typewriter text-[11px] uppercase tracking-widest text-room-muted">
+                  Version {file.version} (latest)
+                </p>
+              )}
               {file.comments.length === 0 && (
                 <p className="py-8 text-center text-sm text-room-muted">
                   No comments yet. Tell {deliveredBy} what you would like changed.
+                  {file.kind === "video" && " Pause the video first to pin your note to that moment."}
                 </p>
               )}
               {file.comments.map((c) => (
-                <div
-                  key={c.id}
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
-                    c.fromAgency
-                      ? "bg-room-accent/20 text-room-fg"
-                      : "ml-auto bg-white/8 text-room-fg"
-                  }`}
-                >
-                  <p className="mb-0.5 font-typewriter text-[11px] text-room-muted">
-                    {c.author} · {timeAgo(c.createdAt)}
-                  </p>
-                  <p className="whitespace-pre-wrap break-words">{c.body}</p>
-                </div>
+                <Bubble key={c.id} c={c} onSeek={onSeek} />
               ))}
             </div>
+
+            {file.kind === "video" && timecode != null && (
+              <div className="flex items-center gap-2 border-t border-room-border px-4 pt-3 text-xs text-room-muted">
+                <button
+                  type="button"
+                  onClick={() => setAttachTime((v) => !v)}
+                  aria-pressed={attachTime}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-typewriter font-bold ${
+                    attachTime ? "bg-room-accent text-room-accent-fg" : "border border-room-border"
+                  }`}
+                >
+                  <Clock className="size-3" /> {formatTimecode(timecode)}
+                </button>
+                {attachTime ? "Your note will point to this moment." : "Tap to pin your note to this moment."}
+              </div>
+            )}
 
             <form
               className="flex items-end gap-2 border-t border-room-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
@@ -112,7 +169,7 @@ export function CommentSheet({ file, name, deliveredBy, onClose, onSend }: Props
                 e.preventDefault();
                 if (!body.trim() || sending) return;
                 setSending(true);
-                const ok = await onSend(body.trim());
+                const ok = await onSend(body.trim(), tc);
                 setSending(false);
                 if (ok) setBody("");
               }}
