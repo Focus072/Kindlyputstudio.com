@@ -59,9 +59,12 @@ export function systemBlocks(specialistId: SpecialistId, workspaceContext: strin
 }
 
 /** Stored history → API turns. Sender names are kept so specialists know who said what. */
-export function toApiMessages(history: Pick<Message, "role" | "content" | "author_name">[]): Anthropic.MessageParam[] {
+export function toApiMessages(history: Pick<Message, "role" | "content" | "author_name" | "stop_reason">[]): Anthropic.MessageParam[] {
   const out: { role: "user" | "assistant"; content: string }[] = [];
   for (const m of history) {
+    // A message Claude declined stays on screen but isn't sent again, so it
+    // can't keep tripping the same refusal on every later turn.
+    if (m.role === "user" && m.stop_reason === "refusal") continue;
     const content = m.role === "user" && m.author_name ? `[${m.author_name}] ${m.content}` : m.content;
     const last = out[out.length - 1];
     if (last && last.role === m.role) last.content += `\n\n${content}`; // e.g. a turn whose reply failed

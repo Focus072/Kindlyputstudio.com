@@ -2,8 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { when } from "@/lib/ai-team/format";
 
-interface Msg { id: string; role: "user" | "assistant"; content: string; author: string | null; at: string; pending?: boolean }
+interface Msg {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  author: string | null;
+  at: string;
+  pending?: boolean;
+  /** Shown instead of the time, e.g. "not saved". */
+  note?: string;
+  /** Claude declined this message, so it isn't sent with later turns. */
+  declined?: boolean;
+}
 
 export function ChatView(props: {
   clientId: string;
@@ -15,14 +27,32 @@ export function ChatView(props: {
 }) {
   const { specialist: s } = props;
   const router = useRouter();
-  const [messages, setMessages] = useState<Msg[]>(props.initial);
+  // props.initial is the history from the database. `local` holds this tab's
+  // bubbles that aren't in it (yet): the message being sent and the reply
+  // streaming in, or an error note that should stay on screen.
+  const [local, setLocal] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const bottom = useRef<HTMLDivElement>(null);
+  const [awaitingSaved, setAwaitingSaved] = useState(false);
+  const [seenInitial, setSeenInitial] = useState(props.initial);
+  const body = useRef<HTMLDivElement>(null);
 
-  // When the server sends a fresh copy (after a reply is saved), use it.
-  useEffect(() => { if (!busy) setMessages(props.initial); }, [props.initial, busy]);
-  useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  // A fresh copy from the server (after router.refresh()) replaces the local
+  // bubbles. If the reply didn't make it into the database, its note stays.
+  if (props.initial !== seenInitial) {
+    setSeenInitial(props.initial);
+    if (awaitingSaved) {
+      setAwaitingSaved(false);
+      const last = props.initial[props.initial.length - 1];
+      setLocal(last?.role === "user" ? local.filter((m) => m.role === "assistant").map((m) => ({ ...m, note: "not saved" })) : []);
+    }
+  }
+
+  const messages = [...props.initial, ...local];
+  useEffect(() => {
+    const el = body.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length, local]);
 
   async function send(text: string) {
     text = text.trim();
@@ -30,11 +60,14 @@ export function ChatView(props: {
     setBusy(true);
     setDraft("");
     const now = new Date().toISOString();
-    setMessages((m) => [
-      ...m,
+    const replyId = `a-${now}`;
+    const setReply = (fn: (content: string) => string) =>
+      setLocal((l) => l.map((x) => (x.id === replyId ? { ...x, content: fn(x.content) } : x)));
+    setLocal([
       { id: `u-${now}`, role: "user", content: text, author: "You", at: now, pending: true },
-      { id: `a-${now}`, role: "assistant", content: "", author: null, at: now, pending: true },
+      { id: replyId, role: "assistant", content: "", author: null, at: now, pending: true },
     ]);
+    let reachedServer = false;
     try {
       const res = await fetch("/api/admin/ai-team/chat", {
         method: "POST",
@@ -42,29 +75,43 @@ export function ChatView(props: {
         body: JSON.stringify({ clientId: props.clientId, conversationId: props.conversationId, text }),
       });
       if (!res.ok || !res.body) {
-        const err = await res.text();
-        setMessages((m) => m.map((x) => (x.id === `a-${now}` ? { ...x, content: `[${err || "Couldn't reach the server."}]` } : x)));
+        // Nothing was saved. Keep both bubbles so the reason stays visible.
+        const err = (await res.text().catch(() => "")).trim();
+        setLocal((l) =>
+          l.map((x) =>
+            x.id === replyId
+              ? { ...x, pending: false, note: "not saved", content: `[${err || "Couldn't reach the server."}]` }
+              : { ...x, pending: false, note: "not sent" },
+          ),
+        );
+        setDraft(text); // so it can be sent again
         return;
       }
+      reachedServer = true;
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = dec.decode(value, { stream: true });
-        setMessages((m) => m.map((x) => (x.id === `a-${now}` ? { ...x, content: x.content + chunk } : x)));
+        setReply((c) => c + chunk);
       }
     } catch {
-      setMessages((m) => m.map((x) => (x.id === `a-${now}` ? { ...x, content: x.content + "\n\n[Connection lost. This reply may not have been saved.]" } : x)));
+      setReply((c) => c + "\n\n[Connection lost. This reply may not have been saved.]");
     } finally {
+      setLocal((l) => l.map((x) => ({ ...x, pending: false })));
       setBusy(false);
-      router.refresh(); // reload saved history from the database
+      if (reachedServer) {
+        // Reload the saved history; the check above swaps it in.
+        setAwaitingSaved(true);
+        router.refresh();
+      }
     }
   }
 
   return (
     <>
-      <div className="chat-body">
+      <div className="chat-body" ref={body}>
         <div className="chat-inner">
           {messages.length === 0 && (
             <div className="card">
@@ -96,16 +143,16 @@ export function ChatView(props: {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="meta">
                   {m.role === "assistant" ? `${s.name} (AI)` : m.author ?? "Team member"} ·{" "}
-                  {m.pending ? (m.role === "assistant" && busy ? "replying…" : "sending…") : new Date(m.at).toLocaleString()}
+                  {m.pending ? (m.role === "assistant" && busy ? "replying…" : "sending…") : m.note ?? when(m.at)}
+                  {m.declined && " · declined, left out of the chat"}
                 </div>
-                <div className="bubble">{m.content || (busy ? "…" : "")}</div>
+                <div className="bubble">{m.content || (m.pending ? "…" : "")}</div>
                 {!m.pending && m.role === "assistant" && props.handoffForms[m.id] && (
                   <div className="tools">{props.handoffForms[m.id]}</div>
                 )}
               </div>
             </div>
           ))}
-          <div ref={bottom} />
         </div>
       </div>
       <div className="chat-foot">
@@ -114,9 +161,10 @@ export function ChatView(props: {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(draft); }
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(draft); }
             }}
-            placeholder={`Message ${s.name}… (Enter to send, Shift+Enter for a new line)`}
+            placeholder={`Message ${s.name}…`}
+            aria-label={`Message ${s.name}`}
             rows={2}
             disabled={busy}
           />

@@ -19,6 +19,8 @@ export interface Conversation {
 export interface Message {
   id: string; conversation_id: string; role: "user" | "assistant"; content: string;
   author_name: string | null; model: string | null; created_at: string;
+  /** On a team member's message, "refusal" means Claude declined it and it's left out of later turns. */
+  stop_reason: string | null;
 }
 export interface Handoff {
   id: string; client_id: string; campaign_id: string | null; campaign_name: string | null;
@@ -26,6 +28,10 @@ export interface Handoff {
   created_at: string; approved_at: string | null; created_by_name: string | null; approved_by_name: string | null;
   source_conversation_id: string | null;
 }
+
+/** Ids in URLs and forms are checked first, so a mistyped link shows "not found" instead of a database error. */
+const isUuid = (s: string | null | undefined): s is string =>
+  !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 function check<T>(r: { data: T | null; error: { message: string } | null }): T {
   if (r.error) throw new Error(`AI Team database error: ${r.error.message}`);
@@ -39,6 +45,7 @@ export async function listClients(): Promise<StudioClient[]> {
   return check(await db().from("calendar_clients").select("id, name, color").order("name"));
 }
 export async function getClient(id: string): Promise<StudioClient | null> {
+  if (!isUuid(id)) return null;
   return check(await db().from("calendar_clients").select("id, name, color").eq("id", id).maybeSingle());
 }
 
@@ -56,6 +63,7 @@ export async function listGuidelines(clientId: string): Promise<Guideline[]> {
 }
 export async function saveGuideline(clientId: string, memberId: string, input: { id?: string; title: string; body: string; status: string }) {
   const row = { title: input.title, body: input.body, status: input.status, updated_by: memberId, updated_at: new Date().toISOString() };
+  if (input.id && !isUuid(input.id)) return;
   if (input.id) check(await db().from("ai_team_brand_guidelines").update(row).eq("id", input.id).eq("client_id", clientId));
   else check(await db().from("ai_team_brand_guidelines").insert({ ...row, client_id: clientId }));
 }
@@ -66,6 +74,7 @@ export async function listCampaigns(clientId: string): Promise<Campaign[]> {
     .eq("client_id", clientId).neq("status", "archived").order("created_at", { ascending: false }));
 }
 export async function getCampaign(clientId: string, id: string): Promise<Campaign | null> {
+  if (!isUuid(id)) return null;
   return check(await db().from("ai_team_campaigns").select("id, client_id, name, goal, status, created_at")
     .eq("client_id", clientId).eq("id", id).maybeSingle());
 }
@@ -88,6 +97,7 @@ export async function listConversations(clientId: string, specialistId?: Special
   return rows.map(toConvo);
 }
 export async function getConversation(clientId: string, id: string): Promise<Conversation | null> {
+  if (!isUuid(id)) return null;
   const row = check(await db().from("ai_team_conversations").select(CONVO_SELECT)
     .eq("client_id", clientId).eq("id", id).maybeSingle()) as unknown as ConvoRow | null;
   return row ? toConvo(row) : null;
@@ -100,7 +110,7 @@ export async function createConversation(clientId: string, specialistId: Special
 }
 export async function listMessages(conversationId: string): Promise<Message[]> {
   const rows = check(await db().from("ai_team_messages")
-    .select("id, conversation_id, role, content, model, created_at, author:admin_users!ai_team_messages_author_id_fkey(display_name)")
+    .select("id, conversation_id, role, content, model, stop_reason, created_at, author:admin_users!ai_team_messages_author_id_fkey(display_name)")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true }).order("id", { ascending: true })) as unknown as (Omit<Message, "author_name"> & { author: Named | Named[] })[];
   return rows.map(({ author, ...m }) => ({ ...m, author_name: nameOf(author) }));
@@ -116,6 +126,11 @@ export async function addMessage(input: {
   }).select("id").single()) as { id: string };
   check(await db().from("ai_team_conversations").update({ updated_at: new Date().toISOString() }).eq("id", input.conversationId));
   return r.id;
+}
+/** Claude declined this message: keep it on screen, but stop sending it with later turns. */
+export async function markDeclined(conversationId: string, messageId: string) {
+  check(await db().from("ai_team_messages").update({ stop_reason: "refusal" })
+    .eq("id", messageId).eq("conversation_id", conversationId).eq("role", "user"));
 }
 export async function setConversationTitleIfDefault(id: string, title: string) {
   check(await db().from("ai_team_conversations").update({ title }).eq("id", id).eq("title", "New conversation"));
@@ -160,6 +175,7 @@ export async function createHandoff(input: {
 }
 
 export async function setHandoffStatus(clientId: string, id: string, status: string, memberId: string) {
+  if (!isUuid(id)) return;
   const approved = status === "approved";
   check(await db().from("ai_team_handoffs").update({
     status, approved_by: approved ? memberId : null, approved_at: approved ? new Date().toISOString() : null,
@@ -168,6 +184,7 @@ export async function setHandoffStatus(clientId: string, id: string, status: str
 
 /** An assistant message, but only if its conversation belongs to this client. */
 export async function getAssistantMessageInClient(clientId: string, messageId: string) {
+  if (!isUuid(messageId)) return null;
   const row = check(await db().from("ai_team_messages")
     .select("id, conversation_id, role, content, convo:ai_team_conversations!inner(client_id, specialist_id, campaign_id)")
     .eq("id", messageId).eq("convo.client_id", clientId).maybeSingle()) as unknown as

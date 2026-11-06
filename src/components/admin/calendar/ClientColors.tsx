@@ -52,7 +52,12 @@ function ClientRow({ client, defaultColor }: { client?: CalClient; defaultColor?
         {client && (
           <button
             formAction={async (fd) => {
-              if (confirm(`Remove ${client.name}? Their posts stay on the calendar as unassigned.`)) await deleteClient(fd);
+              if (
+                confirm(
+                  `Remove ${client.name}? Their posts stay on the calendar as unassigned, but their AI Team chats, brand guidelines, campaigns and handoffs are deleted.`,
+                )
+              )
+                await deleteClient(fd);
             }}
             formNoValidate
             aria-label={`Remove ${client.name}`}

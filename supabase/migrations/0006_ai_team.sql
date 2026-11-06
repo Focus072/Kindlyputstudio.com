@@ -1,5 +1,7 @@
 -- AI Team for /admin/ai-team on kindlyputstudio.com (Supabase project kindly-put-rooms).
--- PROPOSED: apply only through the "Kindly Put Agency" project after review.
+-- Run once in the Supabase SQL editor (or with `supabase db push`). Safe to run twice.
+-- From the AI Team package (Focus072/KindlyPut-Claude-Marketing-Team-, commit 9e4bb86),
+-- where it is named 20261106000000_ai_team.sql.
 --
 -- Additive only. Creates five new ai_team_* tables in the public schema so the
 -- website's existing server-only Supabase client can reach them. No existing
@@ -62,7 +64,7 @@ create table if not exists public.ai_team_messages (
   model text,
   input_tokens integer,
   output_tokens integer,
-  stop_reason text,
+  stop_reason text, -- the reply's stop reason; on a team member's message, 'refusal' means Claude declined it and it's left out of later turns
   created_at timestamptz not null default now()
 );
 create index if not exists ai_team_messages_conversation_idx on public.ai_team_messages(conversation_id, created_at);
@@ -74,7 +76,8 @@ create table if not exists public.ai_team_handoffs (
   client_id uuid not null constraint ai_team_handoffs_client_id_fkey references public.calendar_clients(id) on delete cascade,
   campaign_id uuid constraint ai_team_handoffs_campaign_id_fkey references public.ai_team_campaigns(id) on delete set null,
   from_specialist text not null check (from_specialist in ('maya', 'jules', 'theo', 'nova', 'remy')),
-  to_stage text not null check (to_stage in ('jules', 'theo', 'nova', 'remy', 'review')),
+  -- Any specialist or human review. Work can also go back to an earlier stage (the chat page offers every specialist).
+  to_stage text not null check (to_stage in ('maya', 'jules', 'theo', 'nova', 'remy', 'review')),
   title text not null,
   content text not null,
   status text not null default 'draft' check (status in ('draft', 'approved', 'changes_requested', 'archived')),
@@ -91,3 +94,10 @@ alter table public.ai_team_campaigns enable row level security;
 alter table public.ai_team_conversations enable row level security;
 alter table public.ai_team_messages enable row level security;
 alter table public.ai_team_handoffs enable row level security;
+
+-- Only the server's secret key (service_role) gets table access, as in every
+-- other migration here. Needed when "Automatically expose new tables" is off.
+grant select, insert, update, delete
+  on public.ai_team_brand_guidelines, public.ai_team_campaigns, public.ai_team_conversations,
+     public.ai_team_messages, public.ai_team_handoffs
+  to service_role;

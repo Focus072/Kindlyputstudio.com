@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { BASE, clientPath } from "../../../paths";
 import { notFound } from "next/navigation";
 import { getCampaign, getClient, getConversation, listMessages } from "@/lib/ai-team/store";
@@ -15,6 +16,7 @@ function handoffSection(text: string) {
 }
 
 export default async function ChatPage({ params }: { params: Promise<{ clientId: string; conversationId: string }> }) {
+  await requireTeamMember();
   const { clientId, conversationId: id } = await params;
   const client = await getClient(clientId);
   if (!client) notFound();
@@ -45,6 +47,7 @@ export default async function ChatPage({ params }: { params: Promise<{ clientId:
         </div>
       </div>
       <ChatView
+        key={convo.id}
         clientId={client.id}
         conversationId={convo.id}
         specialist={{ id: s.id, name: s.name, color: s.color, starters: s.starters }}
@@ -55,6 +58,7 @@ export default async function ChatPage({ params }: { params: Promise<{ clientId:
           content: m.content,
           author: m.author_name,
           at: m.created_at,
+          declined: m.role === "user" && m.stop_reason === "refusal",
         }))}
         handoffForms={Object.fromEntries(
           messages

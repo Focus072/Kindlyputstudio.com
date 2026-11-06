@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { listClients } from "@/lib/ai-team/store";
 import { claudeConfigured } from "@/lib/ai-team/claude";
 import { ALL_SPECIALISTS } from "@/lib/ai-team/specialists";
@@ -6,6 +7,7 @@ import { Avatar, SpecialistBadge } from "@/components/ai-team/Avatar";
 import { clientPath } from "./paths";
 
 export default async function AiTeamHome() {
+  await requireTeamMember();
   const clients = await listClients();
   return (
     <main className="page stack">

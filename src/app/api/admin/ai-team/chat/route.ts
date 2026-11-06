@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { requireTeamMember } from "@/lib/ai-team/adapter";
+import { getTeamMember } from "@/lib/ai-team/adapter";
 import {
   addMessage, approvedHandoffsFor, getCampaign, getClient, getConversation,
-  listGuidelines, listMessages, setConversationTitleIfDefault,
+  listGuidelines, listMessages, markDeclined, setConversationTitleIfDefault,
 } from "@/lib/ai-team/store";
 import { buildWorkspaceContext, claudeConfigured, MODEL, streamReply, toApiMessages } from "@/lib/ai-team/claude";
 
@@ -20,8 +20,11 @@ function titleFrom(text: string) {
  * text, and saves the reply only once Claude has actually finished it.
  */
 export async function POST(req: Request) {
-  // requireAdmin() underneath: signed-out requests never reach Claude or the database.
-  const member = await requireTeamMember();
+  // Studio login check: signed-out requests never reach Claude or the AI Team tables.
+  // Answers 401 rather than redirecting, so the chat can say so instead of
+  // showing the login page's HTML as a reply.
+  const member = await getTeamMember();
+  if (!member) return new Response("You're signed out. Sign in again, then resend your message.", { status: 401 });
 
   const body = (await req.json().catch(() => null)) as { clientId?: string; conversationId?: string; text?: string } | null;
   const text = body?.text?.trim();
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
     );
   }
 
-  await addMessage({ conversationId: convo.id, role: "user", content: text, authorId: member.id });
+  const userMessageId = await addMessage({ conversationId: convo.id, role: "user", content: text, authorId: member.id });
   await setConversationTitleIfDefault(convo.id, titleFrom(text));
 
   const [history, guidelines, campaign] = await Promise.all([
@@ -52,30 +55,54 @@ export async function POST(req: Request) {
   const context = buildWorkspaceContext({ client, campaign, guidelines, handoffs, specialistId: convo.specialist_id });
 
   const encoder = new TextEncoder();
+  let clientGone = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      // If the browser goes away mid-reply (tab closed, page changed), keep
+      // going so the finished reply is still saved for the team.
+      const push = (chunk: string) => {
+        if (clientGone) return;
+        try {
+          controller.enqueue(encoder.encode(chunk));
+        } catch {
+          clientGone = true;
+        }
+      };
       let text = "";
       try {
         const s = streamReply(convo.specialist_id, context, toApiMessages(history));
         s.on("text", (delta) => {
           text += delta;
-          controller.enqueue(encoder.encode(delta));
+          push(delta);
         });
         const final = await s.finalMessage();
         if (final.stop_reason === "refusal") {
-          const note = "\n\n[The model declined to answer this request. Nothing was saved from this reply.]";
-          controller.enqueue(encoder.encode(note));
+          // Every model in the fallback chain declined. Don't save the partial
+          // reply, and leave this message out of later turns.
+          let note = "Claude declined to answer this. Nothing from this reply was saved, and your message will be left out of the conversation from now on, so try asking another way.";
+          try {
+            await markDeclined(convo.id, userMessageId);
+          } catch (err) {
+            console.error("AI Team: couldn't mark a declined message", err);
+            note = "Claude declined to answer this. Nothing from this reply was saved. Start a new chat if it keeps happening.";
+          }
+          push(`\n\n[${note}]`);
         } else {
           let saved = text;
           if (final.stop_reason === "max_tokens") {
             saved += "\n\n[This reply hit the length limit and was cut off.]";
-            controller.enqueue(encoder.encode("\n\n[This reply hit the length limit and was cut off.]"));
+            push("\n\n[This reply hit the length limit and was cut off.]");
           }
           if (saved.trim()) {
-            await addMessage({
-              conversationId: convo.id, role: "assistant", content: saved, model: final.model ?? MODEL,
-              inputTokens: final.usage.input_tokens, outputTokens: final.usage.output_tokens, stopReason: final.stop_reason,
-            });
+            try {
+              await addMessage({
+                conversationId: convo.id, role: "assistant", content: saved, model: final.model ?? MODEL,
+                inputTokens: final.usage.input_tokens, outputTokens: final.usage.output_tokens, stopReason: final.stop_reason,
+              });
+            } catch (err) {
+              console.error("AI Team: couldn't save the reply", err);
+              push("\n\n[The reply came through but couldn't be saved. Copy anything you need from it.]");
+            }
           }
         }
       } catch (err) {
@@ -83,11 +110,18 @@ export async function POST(req: Request) {
         if (err instanceof Anthropic.AuthenticationError) msg = "Claude rejected the API key. Check ANTHROPIC_API_KEY in the server settings.";
         else if (err instanceof Anthropic.RateLimitError) msg = "Claude is rate limited right now. Try again in a minute.";
         else if (err instanceof Anthropic.APIError) msg = `Claude returned an error (${err.status ?? "unknown"}).`;
-        console.error("chat error", err);
-        controller.enqueue(encoder.encode(`\n\n[${msg} This reply was not saved.]`));
+        console.error("AI Team: chat error", err);
+        push(`\n\n[${msg} This reply was not saved.]`);
       } finally {
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // already closed because the browser left
+        }
       }
+    },
+    cancel() {
+      clientGone = true;
     },
   });
 

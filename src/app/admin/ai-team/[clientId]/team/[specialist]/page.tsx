@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { BASE, clientPath } from "../../../paths";
 import { notFound } from "next/navigation";
 import { getClient, listCampaigns, listConversations } from "@/lib/ai-team/store";
 import { getSpecialist, nextSpecialist } from "@/lib/ai-team/specialists";
 import { Avatar, SpecialistBadge } from "@/components/ai-team/Avatar";
 import { startConversation } from "../../../actions";
+import { when } from "@/lib/ai-team/format";
 
 export default async function SpecialistPage({ params }: { params: Promise<{ clientId: string; specialist: string }> }) {
+  await requireTeamMember();
   const { clientId, specialist } = await params;
   const s = getSpecialist(specialist);
   const client = await getClient(clientId);
@@ -57,7 +60,7 @@ export default async function SpecialistPage({ params }: { params: Promise<{ cli
                   <div className="small muted">
                     {c.message_count} messages
                     {c.campaign_id ? ` · ${campaigns.find((x) => x.id === c.campaign_id)?.name ?? "campaign"}` : ""} · started by{" "}
-                    {c.created_by_name ?? "unknown"} · last active {new Date(c.updated_at).toLocaleString()}
+                    {c.created_by_name ?? "unknown"} · last active {when(c.updated_at)}
                   </div>
                 </Link>
               ))}

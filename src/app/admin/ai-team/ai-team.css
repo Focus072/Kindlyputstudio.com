@@ -1,78 +1,83 @@
 /* AI Team styles, scoped under .ait so they don't touch the rest of the site.
-   Verified brand value: #1D2B32. Swap the variables for the site's own tokens. */
-.ait { --ink: #1d2b32;
-  --ink-soft: #3c4c54;
-  --muted: #6b7a81;
-  --line: #dfe4e6;
-  --paper: #f7f6f3;
+   Colors and type follow the KPS brand used across /admin (src/config/brand.ts,
+   src/app/globals.css): Ink and Slate, Inter for text, Barlow Condensed for titles,
+   white rounded cards on the admin's light grey background. */
+.ait {
+  --ink: #1d2b32; /* KPS Ink */
+  --ink-soft: #4f6671; /* KPS Slate */
+  --muted: #64748b; /* the admin's secondary text */
+  --line: #e2e8f0; /* the admin's card outline */
   --card: #ffffff;
-  --accent: #1d2b32;
-  --good: #2f7a54;
-  --warn: #a6661c;
-  --bad: #a33a3a;
-  --radius: 12px;
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-.ait { font-family: var(--font); color: var(--ink); background: var(--paper); line-height: 1.5; font-size: 15px; }
+  --tint: #f1f5f9;
+  --good: #15803d;
+  --warn: #a16207;
+  --bad: #b91c1c;
+  --radius: 24px;
+  --ait-display: var(--font-display), "Arial Narrow", Impact, sans-serif;
+  --ait-type: var(--font-typewriter), ui-monospace, "Courier New", monospace;
+}
+.ait { font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; color: var(--ink); line-height: 1.5; font-size: 15px; }
 .ait a { color: inherit; }
 .ait h1, .ait h2, .ait h3 { line-height: 1.2; margin: 0 0 .5rem; }
-.ait h1 { font-size: 1.6rem; }
-.ait h2 { font-size: 1.15rem; }
-.ait h3 { font-size: 1rem; }
+.ait h1 { font-family: var(--ait-display); font-weight: 800; text-transform: uppercase; font-size: clamp(2.25rem, 9vw, 3rem); line-height: 1; overflow-wrap: anywhere; }
+.ait h2 { font-size: 1.125rem; font-weight: 700; }
+.ait h3 { font-size: 1rem; font-weight: 700; }
 .ait p { margin: 0 0 .75rem; }
+.ait ul { margin: 0 0 .75rem; padding-left: 1.1rem; list-style: disc; }
+.ait li + li { margin-top: .25rem; }
 .ait .muted { color: var(--muted); }
 .ait .small { font-size: .85rem; }
-.ait .topbar { display: flex; align-items: center; gap: 1rem; padding: .75rem 1.25rem; background: var(--ink); color: #fff; flex-wrap: wrap; }
-.ait .topbar a { text-decoration: none; }
-.ait .brand { font-weight: 700; letter-spacing: .01em; }
-.ait .brand span { font-weight: 400; opacity: .7; margin-left: .4rem; }
-.ait .topbar .spacer { flex: 1; }
-.ait .topbar form button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.35); }
-.ait .page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-.ait .crumbs { font-size: .85rem; color: var(--muted); margin-bottom: .75rem; }
-.ait .crumbs a { color: var(--muted); }
-.ait .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.ait .page { margin: 0; padding: 0; }
+.ait .crumbs { font-family: var(--ait-type); font-size: .85rem; color: var(--muted); margin-bottom: .5rem; overflow-wrap: anywhere; }
+.ait .crumbs a { color: var(--muted); text-underline-offset: 3px; }
+.ait .crumbs a:hover { color: var(--ink); }
+.ait .row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
 .ait .between { justify-content: space-between; }
-.ait .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.ait .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
 .ait .stack > * + * { margin-top: 1rem; }
-.ait .cols { display: grid; gap: 1.5rem; grid-template-columns: 2fr 1fr; }
-.ait .cols { grid-template-columns: 1fr; }
-.ait .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; }
-.ait .card.link { text-decoration: none; display: block; transition: border-color .15s; }
-.ait .card.link:hover { border-color: var(--ink-soft); }
-.ait .badge { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; background: #eef1f2; color: var(--ink-soft); letter-spacing: .02em; }
+.ait .cols { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .ait .cols { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+.ait .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.1rem 1.25rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); min-width: 0; }
+.ait .card.link { text-decoration: none; display: block; transition: border-color .15s, box-shadow .15s; }
+.ait .card.link:hover { border-color: var(--ink-soft); box-shadow: 0 2px 8px 0 rgb(29 43 50 / .08); }
+.ait .card.link.person { display: flex; }
+.ait .badge { display: inline-block; font-size: .72rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; background: var(--tint); color: var(--ink-soft); letter-spacing: .02em; vertical-align: middle; }
 .ait .badge.ai { background: var(--ink); color: #fff; }
-.ait .badge.approved { background: #e3f1e9; color: var(--good); }
-.ait .badge.draft { background: #f6ecdf; color: var(--warn); }
-.ait .badge.changes_requested { background: #f6e3e3; color: var(--bad); }
-.ait .badge.planned { background: #eef1f2; color: var(--muted); border: 1px dashed #b9c3c7; }
+.ait .badge.approved { background: #dcfce7; color: var(--good); }
+.ait .badge.draft { background: #fef3c7; color: var(--warn); }
+.ait .badge.changes_requested { background: #fee2e2; color: var(--bad); }
+.ait .badge.planned { background: var(--tint); color: var(--muted); border: 1px dashed #cbd5e1; }
 .ait .avatar { flex: none; border-radius: 50%; display: inline-grid; place-items: center; color: #fff; font-weight: 700; position: relative; }
-.ait .person { display: flex; gap: .75rem; align-items: center; }
+.ait .person { display: flex; gap: .75rem; align-items: center; min-width: 0; }
 .ait label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .25rem; }
-.ait input, .ait textarea, .ait select { width: 100%; font: inherit; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+.ait input, .ait textarea, .ait select { width: 100%; font: inherit; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); }
 .ait textarea { resize: vertical; }
-.ait input:focus, .ait textarea:focus, .ait select:focus { outline: 2px solid var(--ink-soft); outline-offset: 1px; }
+.ait input:focus, .ait textarea:focus, .ait select:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
 .ait .field { margin-bottom: .85rem; }
-.ait button, .ait .button { font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; padding: .5rem .9rem; border: 1px solid var(--ink); background: var(--ink); color: #fff; text-decoration: none; display: inline-block; }
+.ait button, .ait .button { font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; border-radius: 999px; padding: .55rem 1.1rem; min-height: 40px; border: 1px solid var(--ink); background: var(--ink); color: #fff; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+.ait button:hover, .ait .button:hover { background: #2a3d46; }
 .ait button.secondary, .ait .button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+.ait button.secondary:hover, .ait .button.secondary:hover { border-color: var(--ink); }
+.ait button.small { min-height: 34px; padding: .35rem .85rem; font-size: .82rem; text-align: left; }
 .ait button:disabled { opacity: .55; cursor: default; }
-.ait .error { color: var(--bad); font-size: .9rem; margin-bottom: .75rem; }
-.ait .notice { background: #fff8ec; border: 1px solid #efd9b4; border-radius: 10px; padding: .75rem 1rem; font-size: .9rem; }
-.ait .auth { max-width: 380px; margin: 8vh auto; padding: 0 1.25rem; }
-.ait /* Chat */
-.chat { display: flex; flex-direction: column; height: calc(100vh - 120px); }
-.ait .chat-head { padding: .75rem 1.25rem; border-bottom: 1px solid var(--line); background: #fff; }
-.ait .chat-body { flex: 1; overflow-y: auto; padding: 1.25rem; }
+.ait .notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: .75rem 1rem; font-size: .9rem; }
+/* Chat: one white card that fills the screen under the admin header. On phones
+   it also leaves room for the bottom tab bar. */
+.ait .chat { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); overflow: hidden;
+  height: calc(100dvh - 11rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: 420px; }
+@media (min-width: 640px) { .ait .chat { height: calc(100dvh - 7.5rem - env(safe-area-inset-top)); } }
+.ait .chat-head { padding: .75rem 1rem; border-bottom: 1px solid var(--line); background: #fff; }
+.ait .chat-body { flex: 1; overflow-y: auto; padding: 1rem; background: #f8fafc; overscroll-behavior: contain; }
 .ait .chat-inner { max-width: 820px; margin: 0 auto; }
 .ait .msg { display: flex; gap: .75rem; margin-bottom: 1.25rem; }
-.ait .msg .bubble { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem 1rem; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; flex: 1; min-width: 0; }
-.ait .msg.user .bubble { background: #eef2f3; border-color: #e1e7e9; }
+.ait .msg .bubble { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: .75rem 1rem; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; min-width: 0; }
+.ait .msg.user .bubble { background: #e9eef1; border-color: #dbe3e7; }
 .ait .msg .meta { font-size: .78rem; color: var(--muted); margin-bottom: .25rem; }
 .ait .msg .tools { margin-top: .5rem; }
-.ait .chat-foot { border-top: 1px solid var(--line); background: #fff; padding: .75rem 1.25rem; }
+.ait .chat-foot { border-top: 1px solid var(--line); background: #fff; padding: .75rem 1rem; }
 .ait .chat-foot form { max-width: 820px; margin: 0 auto; display: flex; gap: .5rem; align-items: flex-end; }
 .ait .chat-foot textarea { min-height: 52px; max-height: 240px; }
 .ait details summary { cursor: pointer; font-size: .85rem; color: var(--ink-soft); }
-.ait .pre { white-space: pre-wrap; font-size: .9rem; }
+.ait .pre { white-space: pre-wrap; font-size: .9rem; overflow-wrap: anywhere; }
 .ait .pipeline { display: flex; gap: .35rem; flex-wrap: wrap; align-items: center; font-size: .85rem; }
 .ait .pipeline .arrow { color: var(--muted); }
-@media (max-width: 800px) { .ait .cols { grid-template-columns: 1fr; } }

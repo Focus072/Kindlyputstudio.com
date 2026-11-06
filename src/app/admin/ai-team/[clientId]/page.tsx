@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { BASE, clientPath } from "../paths";
 import { notFound } from "next/navigation";
 import { getClient, listCampaigns, listConversations, listGuidelines, listHandoffs } from "@/lib/ai-team/store";
 import { ALL_SPECIALISTS } from "@/lib/ai-team/specialists";
 import { Avatar, SpecialistBadge } from "@/components/ai-team/Avatar";
 import { newCampaign } from "../actions";
+import { day } from "@/lib/ai-team/format";
 
 export default async function ClientHome({ params }: { params: Promise<{ clientId: string }> }) {
+  await requireTeamMember();
   const { clientId } = await params;
   const client = await getClient(clientId);
   if (!client) notFound();
@@ -77,7 +80,7 @@ export default async function ClientHome({ params }: { params: Promise<{ clientI
                     <div><strong>{c.title}</strong></div>
                     <div className="small muted">
                       {s.name} · {c.message_count} messages{camp ? ` · ${camp.name}` : ""} · {c.created_by_name ?? "unknown"} ·{" "}
-                      {new Date(c.updated_at).toLocaleDateString()}
+                      {day(c.updated_at)}
                     </div>
                   </div>
                 </Link>

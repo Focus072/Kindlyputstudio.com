@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { BASE, clientPath } from "../../paths";
 import { notFound } from "next/navigation";
 import { getClient, listHandoffs } from "@/lib/ai-team/store";
 import { SPECIALISTS, getSpecialist } from "@/lib/ai-team/specialists";
 import { Avatar } from "@/components/ai-team/Avatar";
 import { reviewHandoff } from "../../actions";
+import { day } from "@/lib/ai-team/format";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Waiting for approval",
@@ -15,6 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function HandoffsPage({
   params, searchParams,
 }: { params: Promise<{ clientId: string }>; searchParams: Promise<{ saved?: string }> }) {
+  await requireTeamMember();
   const { clientId } = await params;
   const sp = await searchParams;
   const client = await getClient(clientId);
@@ -47,8 +50,8 @@ export default async function HandoffsPage({
                   <div className="small muted">
                     {from.name} → {to ? to.name : "Human review"}
                     {h.campaign_name ? ` · ${h.campaign_name}` : " · no campaign"} · saved by {h.created_by_name ?? "unknown"} on{" "}
-                    {new Date(h.created_at).toLocaleDateString()}
-                    {h.approved_at && ` · approved by ${h.approved_by_name ?? "unknown"} on ${new Date(h.approved_at).toLocaleDateString()}`}
+                    {day(h.created_at)}
+                    {h.approved_at && ` · approved by ${h.approved_by_name ?? "unknown"} on ${day(h.approved_at)}`}
                   </div>
                 </div>
               </div>

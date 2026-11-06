@@ -282,7 +282,8 @@ End with "Ready for human review" containing the final deliverables list (ready,
 export const SPECIALISTS: Record<SpecialistId, Specialist> = { maya, jules, theo, nova, remy };
 
 export function getSpecialist(id: string): Specialist | undefined {
-  return (SPECIALISTS as Record<string, Specialist>)[id];
+  // Own keys only, so names like "constructor" in a URL don't match.
+  return Object.hasOwn(SPECIALISTS, id) ? (SPECIALISTS as Record<string, Specialist>)[id] : undefined;
 }
 
 /** The specialist who receives work after `id`, or null for the last stage (human review). */

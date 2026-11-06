@@ -2,18 +2,17 @@ import "server-only";
 /**
  * THE ONLY FILE THAT TOUCHES THE WEBSITE'S OWN HELPERS.
  *
- * Point these two functions at the website's existing pieces:
- *   - requireAdmin() from src/lib/auth.ts (studio login for G and Mohhamed)
- *   - the existing server-only Supabase client (service role)
+ * Connects the AI Team to the site's existing pieces:
+ *   - the studio login from src/lib/auth.ts (admin_users: G and Mohhamed)
+ *   - the server-only Supabase client from src/lib/supabase/admin.ts (secret key)
  *
- * Everything else in src/lib/ai-team and src/app/admin/ai-team imports from
- * here, so nothing else needs to change if those helpers are named
- * differently. Check the two TODOs below against the real code.
+ * Everything else in src/lib/ai-team and src/app/admin/ai-team imports from here.
  */
+import { cache } from "react";
+import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireAdmin } from "@/lib/auth";
-// TODO(adapt): replace with the website's real server-only Supabase helper.
-import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getAdminSession, requireAdmin } from "@/lib/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface TeamMember {
   /** admin_users.id */
@@ -22,15 +21,38 @@ export interface TeamMember {
   displayName: string;
 }
 
-/** Redirects or throws (as the website already does) when not signed in as an admin. */
+/**
+ * The signed-in studio admin, or null. Never redirects, so API routes can
+ * answer 401 instead of sending the browser to the login page. Cached per
+ * request, so the layout and page share one lookup.
+ */
+export const getTeamMember = cache(async (): Promise<TeamMember | null> => {
+  const session = await getAdminSession();
+  if (!session) return null;
+  const { data } = await supabaseAdmin()
+    .from("admin_users")
+    .select("id, username, display_name")
+    .eq("id", session.userId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    displayName: (data.display_name as string | null)?.trim() || (data.username as string | null) || "Team member",
+  };
+});
+
+/**
+ * Sends anyone who isn't signed in as a studio admin to /login, as the rest of
+ * /admin does. Call at the top of every AI Team page and server action.
+ */
 export async function requireTeamMember(): Promise<TeamMember> {
-  const admin = await requireAdmin();
-  // TODO(adapt): map whatever requireAdmin() returns. admin_users has
-  // id, username, display_name, role.
-  const a = admin as unknown as { id: string; display_name?: string | null; username?: string | null };
-  return { id: a.id, displayName: a.display_name || a.username || "Team member" };
+  await requireAdmin();
+  const member = await getTeamMember();
+  // A valid cookie for an admin row that no longer exists.
+  if (!member) redirect("/login");
+  return member;
 }
 
 export function db(): SupabaseClient {
-  return getSupabaseAdmin();
+  return supabaseAdmin();
 }

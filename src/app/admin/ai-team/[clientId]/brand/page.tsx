@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { requireTeamMember } from "@/lib/ai-team/adapter";
 import { BASE, clientPath } from "../../paths";
 import { notFound } from "next/navigation";
 import { getClient, listGuidelines } from "@/lib/ai-team/store";
 import { upsertGuideline } from "../../actions";
+import { when } from "@/lib/ai-team/format";
 
 function GuidelineForm({ client, g }: { client: string; g?: { id: string; title: string; body: string; status: string } }) {
   return (
@@ -31,6 +33,7 @@ function GuidelineForm({ client, g }: { client: string; g?: { id: string; title:
 }
 
 export default async function BrandPage({ params }: { params: Promise<{ clientId: string }> }) {
+  await requireTeamMember();
   const { clientId } = await params;
   const client = await getClient(clientId);
   if (!client) notFound();
@@ -55,7 +58,7 @@ export default async function BrandPage({ params }: { params: Promise<{ clientId
             <span className={`badge ${g.status}`}>{g.status}</span>
           </div>
           <p className="small muted">
-            Updated {new Date(g.updated_at).toLocaleString()}{g.updated_by_name ? ` by ${g.updated_by_name}` : ""}
+            Updated {when(g.updated_at)}{g.updated_by_name ? ` by ${g.updated_by_name}` : ""}
           </p>
           <div className="pre" style={{ marginBottom: ".75rem" }}>{g.body}</div>
           <details>
