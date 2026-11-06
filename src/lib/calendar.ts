@@ -21,6 +21,8 @@ export type CalPost = {
   bufferId: string | null;
   channelId: string | null;
   media: CalMedia[];
+  /** Buffer only sent a phone reminder, so "sent" doesn't prove it went live. */
+  reminder?: boolean;
 };
 
 export type CalMedia = { url: string; thumb: string | null; isVideo: boolean };

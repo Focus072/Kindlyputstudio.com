@@ -20,6 +20,9 @@ export type BufferPost = {
   channelId: string;
   channelService: string;
   externalLink: string | null;
+  /** "notification" means Buffer only sends a phone reminder; someone has to finish posting in the app. */
+  schedulingType?: string | null;
+  notificationStatus?: string | null;
   assets: { type: string | null; thumbnail: string | null; mimeType: string | null; source: string | null }[];
 };
 
@@ -82,20 +85,31 @@ export async function bufferChannels(key: string, organizationId: string): Promi
   }));
 }
 
-const POSTS_QUERY = `query Posts($input: PostsInput!, $after: String) {
+const postsQuery = (extra: string) => `query Posts($input: PostsInput!, $after: String) {
   posts(first: 100, after: $after, input: $input) {
-    edges { node { id text status dueAt sentAt channelId channelService externalLink assets { type thumbnail mimeType source } } }
+    edges { node { id text status dueAt sentAt channelId channelService externalLink ${extra} assets { type thumbnail mimeType source } } }
     pageInfo { hasNextPage endCursor }
   }
 }`;
+const POSTS_QUERY = postsQuery("schedulingType notificationStatus");
+const POSTS_QUERY_BASIC = postsQuery("");
 
 type PostsPage = { posts: { edges: { node: BufferPost }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } };
 
 async function pagedPosts(key: string, input: Record<string, unknown>, maxPages = 5): Promise<BufferPost[]> {
   const out: BufferPost[] = [];
   let after: string | null = null;
+  let query = POSTS_QUERY;
   for (let i = 0; i < maxPages; i++) {
-    const data: PostsPage = await gql<PostsPage>(key, POSTS_QUERY, { input, after });
+    let data: PostsPage;
+    try {
+      data = await gql<PostsPage>(key, query, { input, after });
+    } catch (e) {
+      // The reminder fields are a nice-to-have; never let them break the calendar.
+      if (query === POSTS_QUERY_BASIC || !(e instanceof BufferError) || !/schedulingType|notificationStatus|Cannot query field/i.test(e.message)) throw e;
+      query = POSTS_QUERY_BASIC;
+      data = await gql<PostsPage>(key, query, { input, after });
+    }
     out.push(...(data.posts?.edges ?? []).map((e) => e.node));
     if (!data.posts?.pageInfo?.hasNextPage || !data.posts.pageInfo.endCursor) break;
     after = data.posts.pageInfo.endCursor;
