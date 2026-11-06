@@ -310,12 +310,12 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
             </div>
           )}
           {listDays.map((k) => (
-            <section key={k}>
-              <h2 className={`sticky top-[calc(env(safe-area-inset-top)+3.75rem)] z-[2] -mx-1 mb-2 bg-[#eceef0]/95 px-1 py-1 font-display text-2xl uppercase leading-none backdrop-blur ${k === today ? "text-ink" : k < today ? "text-slate-400" : "text-ink"}`}>
+            <section key={k} className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+              <h2 className={`sticky top-[calc(env(safe-area-inset-top)+3.75rem)] z-[2] -mx-1 mb-2 bg-[#eceef0]/95 px-1 py-1 font-display text-2xl uppercase leading-none backdrop-blur lg:top-24 lg:mx-0 lg:mb-0 lg:text-balance lg:bg-transparent lg:px-0 lg:pt-3 lg:backdrop-blur-none ${k === today ? "text-ink" : k < today ? "text-slate-400" : "text-ink"}`}>
                 {dayLabel(k)}
                 {k === today && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle font-sans text-[10px] font-bold text-white">TODAY</span>}
               </h2>
-              <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2">
+              <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)] 2xl:grid-cols-2">
                 {(byDay.get(k) ?? []).map((p) => (
                   <li key={p.id} className="rounded-2xl bg-white">
                     {card(p)}
@@ -402,13 +402,14 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
                               setDragId(null);
                               setDropDay(null);
                             }}
-                            className={`flex min-w-0 items-center gap-1 rounded-md border-l-[3px] px-1.5 py-0.5 text-[11px] leading-tight text-ink ${p.status === "idea" || p.status === "draft" ? "border-dashed" : ""} ${canMove ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === p.id ? "opacity-40" : ""}`}
+                            className={`flex min-w-0 items-center gap-1 rounded-md border-l-[3px] px-1.5 py-0.5 text-[11px] xl:flex-wrap xl:gap-y-0 leading-tight text-ink ${p.status === "idea" || p.status === "draft" ? "border-dashed" : ""} ${canMove ? "cursor-grab active:cursor-grabbing" : ""} ${dragId === p.id ? "opacity-40" : ""}`}
                             style={{ borderLeftColor: colorOf(p.clientId), background: `${colorOf(p.clientId)}1f` }}
                             title={`${nameOf(p.clientId)} · ${platformInfo(p.platform).label} · ${timeLabel(p.at)}${canMove ? " · drag to move" : ""}`}
                           >
                             {p.status === "error" && <CircleAlert className="size-3 shrink-0 text-decline" />}
                             <span className="shrink-0 font-bold">{platformInfo(p.platform).short}</span>
                             <span className="truncate text-slate-600">{timeLabel(p.at).replace(":00", "").replace(" ", "").toLowerCase()}</span>
+                            {p.caption && <span className="hidden min-w-0 basis-full truncate text-slate-500 xl:block">{p.caption}</span>}
                           </span>
                         );
                       })}
@@ -453,7 +454,7 @@ function Calendar({ month, today, clients, channels, posts, buffer, dbReady }: P
                 className="mt-4 flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 hover:border-ink hover:text-ink"
               >
                 <CalendarDays className="size-6 text-slate-300" />
-                Nothing scheduled. {canPost ? "Tap to plan a post." : ""}
+                Nothing scheduled. {canPost ? <><span className="pointer-fine:hidden">Tap</span><span className="hidden pointer-fine:inline">Click</span> to plan a post.</> : ""}
               </button>
             ) : (
               <ul className="mt-3 space-y-3">

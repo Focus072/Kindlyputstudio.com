@@ -65,8 +65,8 @@ export function Showcase({ shoots }: { shoots: ShowcaseShoot[] }) {
             exit={{ opacity: 0 }}
             onClick={() => setOpen(null)}
           >
-            <div className="mx-auto max-w-6xl px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-4 bg-ink/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+            <div className="mx-auto max-w-6xl px-4 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:px-8" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-4 bg-ink/90 px-4 pb-3 pt-[calc(1.5rem+env(safe-area-inset-top))] backdrop-blur sm:-mx-8 sm:px-8">
                 <div className="min-w-0">
                   <p className="font-typewriter text-xs text-mist/60">Recent work · {open.photoCount} photos</p>
                   <h3 className="font-display text-4xl uppercase leading-none sm:text-6xl">{open.client}</h3>
@@ -81,7 +81,7 @@ export function Showcase({ shoots }: { shoots: ShowcaseShoot[] }) {
                   <X className="size-5" />
                 </button>
               </div>
-              <ul className="mt-4 columns-2 gap-3 sm:columns-3 sm:gap-4">
+              <ul className="mt-4 columns-2 gap-3 sm:columns-3 sm:gap-4 2xl:columns-4">
                 {open.photos.map((p, i) => (
                   <li key={i} className="mb-3 break-inside-avoid overflow-hidden rounded-2xl bg-white/5 sm:mb-4">
                     <img src={p.full} alt="" loading="lazy" className="w-full" />

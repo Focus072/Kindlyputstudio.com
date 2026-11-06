@@ -57,7 +57,7 @@ export function RoomMockup({ cover, thumbs, client, title, mark }: Props) {
       <motion.div {...float(0)} className="absolute -left-2 top-[18%] sm:-left-10">
         <Card icon={<Check className="size-3.5 sm:size-4" />} tone="bg-approve text-white" big="12" small="approved" />
       </motion.div>
-      <motion.div {...float(1.2)} className="absolute -right-2 top-[6%] sm:-right-8">
+      <motion.div {...float(1.2)} className="absolute -right-2 top-[6%] sm:-right-8 lg:-right-14 lg:top-[11%]">
         <Card icon={<Eye className="size-3.5 sm:size-4" />} tone="bg-ink text-white" big="Opened" small="just now" />
       </motion.div>
       <motion.div {...float(2.4)} className="absolute -bottom-4 right-[12%] sm:-bottom-6">
