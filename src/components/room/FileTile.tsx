@@ -32,7 +32,10 @@ export function FileTile({ file, index, onOpen, onReview, onComment, natural, wa
   const cover = file.thumbUrl ?? file.posterUrl;
 
   function handleClick() {
-    if (isVideo && file.videoUrl) {
+    // Phones open videos in the full screen viewer, where the client can still
+    // approve, decline, and pin a note to the moment. A 2-column tile is too small to watch.
+    const phone = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+    if (isVideo && file.videoUrl && !phone) {
       setPlaying(true);
       requestAnimationFrame(() => videoRef.current?.play().catch(() => {}));
     } else {

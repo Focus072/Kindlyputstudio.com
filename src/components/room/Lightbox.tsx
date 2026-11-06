@@ -29,11 +29,13 @@ const statusChip = {
   changes: "bg-decline text-white",
   pending: "bg-white/10 text-white/80",
 } as const;
+const statusShort = { approved: "Approved", changes: "Changes", pending: "Pending" } as const;
 const statusText = { approved: "Approved", changes: "Changes requested", pending: "Pending review" } as const;
 
 export function Lightbox({ files, index, slug, onIndex, onReview, onComment, startAt, watermark, alwaysDownload }: Props) {
   const file = index === null ? null : files[index];
   const videoRef = useRef<HTMLVideoElement>(null);
+  const touch = useRef<{ x: number; y: number } | null>(null);
   // null = the current version; otherwise an earlier version's id.
   const [picked, setPicked] = useState<{ fileId: string | null; versionId: string | null }>({ fileId: null, versionId: null });
   const versionId = picked.fileId === (file?.id ?? null) ? picked.versionId : null;
@@ -145,7 +147,26 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
             </div>
           )}
 
-          <div className="relative flex min-h-0 flex-1 items-center justify-center px-2 sm:px-16">
+          <div
+            className="relative flex min-h-0 flex-1 items-center justify-center px-2 sm:px-16"
+            // Swipe left or right to move between files on phones. Ignored on the
+            // video itself (its scrubber) and during pinch zoom.
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              touch.current =
+                e.touches.length === 1 && !(e.target instanceof HTMLVideoElement) ? { x: t.clientX, y: t.clientY } : null;
+            }}
+            onTouchEnd={(e) => {
+              const start = touch.current;
+              touch.current = null;
+              if (!start || files.length < 2) return;
+              const t = e.changedTouches[0];
+              const dx = t.clientX - start.x;
+              const dy = t.clientY - start.y;
+              if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+              onIndex(dx < 0 ? (index + 1) % files.length : (index - 1 + files.length) % files.length);
+            }}
+          >
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${file.id}:${versionId ?? "current"}`}
@@ -213,7 +234,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
             <p className="mx-auto max-w-2xl whitespace-pre-wrap px-6 pt-3 text-center text-sm text-white/80">{file.caption}</p>
           )}
 
-          <div className="flex items-center justify-center gap-6 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-center gap-4 p-5 sm:gap-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             {files.length > 1 && (
               <button
                 type="button"
@@ -228,9 +249,10 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
               <button
                 type="button"
                 onClick={() => setVersionId(null)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${statusChip[status]}`}
+                className={`rounded-full px-3.5 py-2 text-sm font-semibold max-sm:whitespace-nowrap sm:px-4 ${statusChip[status]}`}
               >
-                v{older.version} was {statusText[status].toLowerCase()} · Back to latest
+                <span className="sm:hidden">v{older.version} · {statusShort[status]} · Back to latest</span>
+                <span className="hidden sm:inline">v{older.version} was {statusText[status].toLowerCase()} · Back to latest</span>
               </button>
             ) : onReview && onComment ? (
               <ReviewButtons

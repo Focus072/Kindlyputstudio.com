@@ -272,7 +272,7 @@ export function AuthModal({
                   minLength={mode === "signup" ? 8 : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "Create a password (8+ characters)" : "Password"}
+                  placeholder={mode === "signup" ? "Password (8+ characters)" : "Password"}
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   className={input}
                 />
@@ -285,7 +285,7 @@ export function AuthModal({
                     setNotice(null);
                     setMode("forgot");
                   }}
-                  className="block px-1 text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"
+                  className="block px-1 text-sm text-white/60 underline-offset-4 hover:text-white hover:underline max-sm:-my-1.5 max-sm:py-1.5"
                 >
                   Forgot password?
                 </button>
@@ -310,7 +310,7 @@ export function AuthModal({
                   setNotice(null);
                   setMode(mode === "signin" ? "signup" : "signin");
                 }}
-                className="font-semibold text-steel underline-offset-4 hover:underline"
+                className="font-semibold text-steel underline-offset-4 hover:underline max-sm:-my-2.5 max-sm:py-2.5"
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}
               </button>

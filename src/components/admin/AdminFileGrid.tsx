@@ -31,6 +31,7 @@ import {
   updateFileDetails,
 } from "@/app/admin/actions";
 import { formatTimecode } from "@/lib/format";
+import { useVisibleViewport } from "@/lib/visible-viewport";
 import type { RoomComment, RoomFile } from "@/lib/types";
 import { uploadToRoom } from "@/lib/upload-client";
 import { Lightbox } from "@/components/room/Lightbox";
@@ -156,6 +157,7 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
   const [openId, setOpenId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [sheetId, setSheetId] = useState<string | null>(null);
+  const sheetViewport = useVisibleViewport(sheetId !== null);
   const [viewIndex, setViewIndex] = useState<number | null>(null);
   const [order, setOrder] = useState(files);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -443,6 +445,7 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
       {sheetFile && (
         <motion.div
           className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm sm:hidden"
+          style={sheetViewport}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -457,7 +460,7 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 36 }}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[88dvh] w-full overflow-y-auto rounded-t-[28px] bg-white pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            className="max-h-[88%] w-full overflow-y-auto rounded-t-[28px] bg-white pb-[calc(1rem+env(safe-area-inset-bottom))]"
           >
             <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3">
               <div className="size-12 shrink-0 overflow-hidden rounded-xl bg-ink">

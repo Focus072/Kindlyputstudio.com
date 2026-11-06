@@ -72,7 +72,7 @@ export default async function AdminHome() {
           <section className="mt-6">
             <div className="mb-3 flex items-end justify-between">
               <h2 className="text-lg font-bold text-ink">Latest activity</h2>
-              <Link href="/admin/activity" className="text-sm font-semibold text-brand hover:underline">
+              <Link href="/admin/activity" className="text-sm font-semibold text-brand hover:underline max-sm:-my-2.5 max-sm:py-2.5">
                 See all
               </Link>
             </div>

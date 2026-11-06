@@ -18,7 +18,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/admin" className="flex items-center gap-3">
             <img src={studio.markOnDark} alt={studio.name} className="h-8 w-auto" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-mist/80">Studio</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-mist/80 sm:max-lg:hidden">Studio</span>
           </Link>
           <AdminTopNav unread={unread} />
           <div className="flex items-center">
@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
               aria-label="Sign out"
             >
               <LogOut className="size-4" />
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden lg:inline">Sign out</span>
             </button>
           </form>
           </div>

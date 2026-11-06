@@ -16,11 +16,11 @@ export default async function LoginPage() {
         <h1 className="mt-8 text-center font-display text-5xl uppercase text-white">Studio admin</h1>
         <LoginForm />
         <p className="mt-8 text-center text-sm">
-          <Link href="/" className="text-white/60 underline-offset-4 hover:text-white hover:underline">
+          <Link href="/" className="text-white/60 underline-offset-4 hover:text-white hover:underline max-sm:py-2.5">
             Back to {brand.name}
           </Link>
           <span className="px-2 text-white/30">·</span>
-          <Link href="/account" className="text-white/60 underline-offset-4 hover:text-white hover:underline">
+          <Link href="/account" className="text-white/60 underline-offset-4 hover:text-white hover:underline max-sm:py-2.5">
             Client login
           </Link>
         </p>

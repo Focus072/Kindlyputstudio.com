@@ -27,7 +27,7 @@ export function ActivityList({ items, empty = "Nothing yet. Activity shows up he
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm text-ink">{describe(a)}</span>
+                <span className="block text-sm text-ink max-sm:line-clamp-2 max-sm:[overflow-wrap:anywhere] sm:truncate">{describe(a)}</span>
                 <span className="block truncate text-xs text-slate-500">{a.roomTitle}</span>
               </span>
               <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.createdAt)}</span>

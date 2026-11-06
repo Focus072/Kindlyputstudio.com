@@ -29,8 +29,8 @@ function ClientRow({ client, defaultColor }: { client?: CalClient; defaultColor?
     <form action={action} className={`rounded-2xl p-2 ${client ? "ring-1 ring-slate-200" : "border border-dashed border-slate-300"}`}>
       {client && <input type="hidden" name="id" value={client.id} />}
       <input type="hidden" name="color" value={color} />
-      <div className="flex items-center gap-2">
-        <label className="relative size-11 shrink-0 cursor-pointer overflow-hidden rounded-xl ring-1 ring-black/10" style={{ background: color }} title="Pick any color">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <label className="relative size-10 shrink-0 cursor-pointer sm:size-11 overflow-hidden rounded-xl ring-1 ring-black/10" style={{ background: color }} title="Pick any color">
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" aria-label="Color" />
         </label>
         <input
@@ -44,7 +44,7 @@ function ClientRow({ client, defaultColor }: { client?: CalClient; defaultColor?
         />
         <button
           disabled={pending || !dirty || !name.trim()}
-          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl bg-ink px-4 text-sm font-semibold text-white disabled:opacity-30"
+          className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl bg-ink px-3 text-sm sm:px-4 font-semibold text-white disabled:opacity-30"
         >
           {client ? <Check className="size-4" /> : "Add"}
           <span className="sr-only">{client ? "Save" : ""}</span>
@@ -56,21 +56,21 @@ function ClientRow({ client, defaultColor }: { client?: CalClient; defaultColor?
             }}
             formNoValidate
             aria-label={`Remove ${client.name}`}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-decline"
+            className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 sm:w-11 hover:bg-red-50 hover:text-decline"
           >
             <Trash2 className="size-4" />
           </button>
         )}
       </div>
       {!client && (
-        <div className="mt-2 flex flex-wrap gap-1.5 pl-1">
+        <div className="mt-2 flex flex-wrap gap-2 pl-1 sm:gap-1.5">
           {SWATCHES.map((s) => (
             <button
               type="button"
               key={s}
               onClick={() => setColor(s)}
               aria-label={`Use ${s}`}
-              className={`size-6 rounded-full ring-offset-2 ${s === color ? "ring-2 ring-ink" : ""}`}
+              className={`size-8 rounded-full ring-offset-2 sm:size-6 ${s === color ? "ring-2 ring-ink" : ""}`}
               style={{ background: s }}
             />
           ))}

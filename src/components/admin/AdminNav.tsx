@@ -37,7 +37,7 @@ export function AdminTopNav({ unread = 0 }: { unread?: number }) {
           <Link
             key={t.href}
             href={t.href}
-            className={`rounded-full px-4 py-2 transition-colors ${
+            className={`rounded-full px-3 py-2 transition-colors lg:px-4 ${
               t.match(path) ? "bg-white/12 text-white" : "text-mist/70 hover:bg-white/8 hover:text-white"
             }`}
           >

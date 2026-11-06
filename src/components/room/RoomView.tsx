@@ -534,7 +534,12 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-sm font-semibold text-black shadow-xl"
+            // Sits above the "Send feedback" bar while it is showing, so neither hides the other.
+            className={`fixed inset-x-0 z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-center text-sm font-semibold text-black shadow-xl ${
+              showFeedbackBar && lightboxIndex === null && !sheetFile
+                ? "bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
+                : "bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
+            }`}
           >
             {toast}
           </motion.div>

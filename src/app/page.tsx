@@ -90,7 +90,7 @@ export default async function Home() {
       <section className="relative">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(182,195,200,0.55),transparent)]" />
         <div className="relative mx-auto max-w-6xl px-5 pb-10 pt-12 text-center sm:px-8 sm:pt-20">
-          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-1.5 font-typewriter text-xs text-slate-600">
+          <p className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-1.5 font-typewriter text-[11px] whitespace-nowrap text-slate-600 sm:text-xs">
             <span className="size-1.5 rounded-full bg-approve" /> Photo · Video · Content · {brand.city}
           </p>
           <h1 className="mx-auto mt-6 max-w-4xl font-display text-[clamp(3.4rem,13vw,8.5rem)] uppercase leading-[0.88] tracking-[-0.01em]">
@@ -230,11 +230,11 @@ export default async function Home() {
           <p className="font-typewriter text-xs">
             © {new Date().getFullYear()} {brand.legalName} · {brand.city} · Kindly put. Boldly seen.
           </p>
-          <nav className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
-            <Link href="/account" className="hover:text-white">Client login</Link>
-            <Link href="/login" className="hover:text-white">Studio</Link>
+          <nav className="grid grid-cols-2 gap-x-5 sm:flex sm:flex-wrap sm:gap-y-2">
+            <Link href="/privacy" className="py-2 hover:text-white sm:py-0">Privacy Policy</Link>
+            <Link href="/terms" className="py-2 hover:text-white sm:py-0">Terms of Service</Link>
+            <Link href="/account" className="py-2 hover:text-white sm:py-0">Client login</Link>
+            <Link href="/login" className="py-2 hover:text-white sm:py-0">Studio</Link>
           </nav>
         </div>
       </footer>
