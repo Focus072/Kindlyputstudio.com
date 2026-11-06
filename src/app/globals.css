@@ -69,3 +69,27 @@ body:has(.room-root) {
 .kp-watermark {
   background-image: repeating-linear-gradient(-30deg, transparent 0 46px, rgba(255, 255, 255, 0.06) 46px 47px);
 }
+
+/* Admin selects: same padding and a drawn chevron, so they line up with the
+   text fields instead of showing the browser arrow hard against the edge. */
+.kp-admin select:not([multiple]) {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f6671' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 1rem;
+}
+
+/* Color picker: show the chosen color as a clean rounded swatch. */
+.kp-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.kp-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 0.5rem;
+}
+.kp-color::-moz-color-swatch {
+  border: none;
+  border-radius: 0.5rem;
+}

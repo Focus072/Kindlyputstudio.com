@@ -68,7 +68,7 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
           {themeList.map((t) => (
             <label
               key={t.id}
-              className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 ${
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 sm:last:odd:col-span-2 ${
                 preset === t.id ? "border-ink ring-2 ring-ink/10" : "border-slate-200"
               }`}
             >
@@ -105,7 +105,7 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
             name="accent_color"
             value={accent}
             onChange={(e) => setAccent(e.target.value)}
-            className="h-10 w-14 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
+            className="kp-color h-10 w-14 cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
           />
           Accent color for this room <span className="font-typewriter text-xs text-slate-400">{accent}</span>
         </label>

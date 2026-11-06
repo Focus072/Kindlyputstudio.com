@@ -60,9 +60,12 @@ export default async function AdminHome() {
 
       {rooms.length > 0 && (
         <>
-          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-6 lg:grid-cols-5">
             {overview.map((o) => (
-              <div key={o.label} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div
+                key={o.label}
+                className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 max-sm:last:odd:col-span-2 sm:col-span-2 sm:nth-[n+4]:col-span-3 lg:col-span-1 lg:nth-[n+4]:col-span-1"
+              >
                 <dd className={`text-3xl font-bold tabular-nums ${o.value ? o.tone : "text-ink/25"}`}>{o.value}</dd>
                 <dt className="mt-1 text-sm font-semibold text-ink">{o.label}</dt>
                 <p className="text-xs text-slate-400">{o.hint}</p>
@@ -70,7 +73,7 @@ export default async function AdminHome() {
             ))}
           </dl>
           <section className="mt-6">
-            <div className="mb-3 flex items-end justify-between">
+            <div className="mb-3 flex items-baseline justify-between">
               <h2 className="text-lg font-bold text-ink">Latest activity</h2>
               <Link href="/admin/activity" className="text-sm font-semibold text-brand hover:underline max-sm:-my-2.5 max-sm:py-2.5">
                 See all
