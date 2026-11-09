@@ -2,7 +2,7 @@
 
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Check, ChevronLeft, ChevronRight, MessageCircle, RotateCcw, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Verdict = "approved" | "changes" | null;
 
@@ -23,11 +23,31 @@ export function TryRoom({ photos, client }: { photos: string[]; client: string }
   const v = verdicts[i];
   const done = verdicts.filter(Boolean).length;
 
+  // Auto-advance after a verdict; any other interaction cancels it.
+  const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelAdvance = () => {
+    if (advance.current) clearTimeout(advance.current);
+    advance.current = null;
+  };
+  useEffect(() => cancelAdvance, []);
+  const go = (k: number) => {
+    cancelAdvance();
+    setI(k);
+  };
+
   const decide = (next: Verdict) => {
+    cancelAdvance();
     setVerdicts((all) => all.map((x, k) => (k === i ? (x === next ? null : next) : x)));
-    if (next && v !== next && i < count - 1) setTimeout(() => setI((k) => Math.min(k + 1, count - 1)), 900);
+    const from = i;
+    if (v !== next && from < count - 1) {
+      advance.current = setTimeout(() => {
+        advance.current = null;
+        setI((k) => (k === from ? from + 1 : k));
+      }, 900);
+    }
   };
   const reset = () => {
+    cancelAdvance();
     setVerdicts(Array(count).fill(null));
     setNoted(Array(count).fill(false));
     setI(0);
@@ -107,7 +127,7 @@ export function TryRoom({ photos, client }: { photos: string[]; client: string }
           <button
             type="button"
             aria-label="Previous photo"
-            onClick={() => setI((k) => (k + count - 1) % count)}
+            onClick={() => go((i + count - 1) % count)}
             className="absolute left-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition hover:bg-black/60"
           >
             <ChevronLeft className="size-5" />
@@ -115,7 +135,7 @@ export function TryRoom({ photos, client }: { photos: string[]; client: string }
           <button
             type="button"
             aria-label="Next photo"
-            onClick={() => setI((k) => (k + 1) % count)}
+            onClick={() => go((i + 1) % count)}
             className="absolute right-2 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition hover:bg-black/60"
           >
             <ChevronRight className="size-5" />
@@ -156,7 +176,10 @@ export function TryRoom({ photos, client }: { photos: string[]; client: string }
           </button>
           <button
             type="button"
-            onClick={() => setNoted((all) => all.map((x, k) => (k === i ? !x : x)))}
+            onClick={() => {
+              cancelAdvance();
+              setNoted((all) => all.map((x, k) => (k === i ? !x : x)));
+            }}
             aria-label="Leave a note"
             aria-pressed={noted[i]}
             className={`flex size-[46px] items-center justify-center rounded-full transition active:scale-95 ${

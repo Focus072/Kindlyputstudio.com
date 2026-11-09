@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 /** Fades and lifts its children in the first time they scroll into view. */
 export function Reveal({
@@ -15,10 +15,11 @@ export function Reveal({
   as?: "div" | "li";
 }) {
   const Tag = as === "li" ? motion.li : motion.div;
+  const still = useReducedMotion();
   return (
     <Tag
       className={className}
-      initial={{ opacity: 0, y: 28 }}
+      initial={still ? false : { opacity: 0, y: 28 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.25 }}
       transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
