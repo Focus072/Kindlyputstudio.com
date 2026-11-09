@@ -240,13 +240,18 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
   const uploading = tiles.some((t) => !t.url && !t.error);
   const effectiveIg = ig.type ?? (hasVideo ? "reel" : "post");
   const textFor = (service: string) => captions[service] ?? text;
-  const tabText = tab === "all" ? text : textFor(tab);
-  const tabLimit = tab === "all" ? Math.min(...services.filter((s) => captions[s] === undefined).map((s) => CAPTION_LIMIT[s] ?? Infinity), Infinity) : (CAPTION_LIMIT[tab] ?? Infinity);
-  const hashtags = (tabText.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
-  const over = services.filter((s) => CAPTION_LIMIT[s] && textFor(s).length > CAPTION_LIMIT[s]);
-
   // Keep the caption tab and preview pointed at something that's still selected.
   const activeTab = tab !== "all" && !services.includes(tab) ? "all" : tab;
+  const tabText = activeTab === "all" ? text : textFor(activeTab);
+  const tabLimit = activeTab === "all" ? Math.min(...services.filter((s) => captions[s] === undefined).map((s) => CAPTION_LIMIT[s] ?? Infinity), Infinity) : (CAPTION_LIMIT[activeTab] ?? Infinity);
+  const hashtags = (tabText.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
+  // Editing a Google offer/event or a YouTube video: Buffer doesn't hand back every
+  // setting (offer dates, coupon, YouTube category...), so leave them as they are
+  // in Buffer instead of overwriting them with defaults.
+  const keepsMeta =
+    !!editing?.bufferId && (services[0] === "youtube" || (services[0] === "googlebusiness" && (meta?.type === "offer" || meta?.type === "event")));
+  const over = services.filter((s) => CAPTION_LIMIT[s] && textFor(s).length > CAPTION_LIMIT[s]);
+
   const previewChannel = chosen.find((c) => c.id === previewId) ?? chosen[0] ?? null;
 
   const groups = useMemo(() => {
@@ -359,7 +364,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
           when: w === "queue" ? "queue" : w,
           date,
           time,
-          options: optionsTouched || mediaTouched ? options : null,
+          options: optionsTouched && !keepsMeta ? options : null,
           tagIds: tagsTouched ? [...tagIds] : null,
           boardId: editing.channelId ? boards[editing.channelId] : undefined,
         });
@@ -816,6 +821,12 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                 )}
                 {services.includes("googlebusiness") && (
                   <NetworkCard service="googlebusiness" title="Google Business Profile">
+                    {keepsMeta ? (
+                      <p className="text-xs text-slate-500">
+                        This post&rsquo;s {g.type === "offer" ? "offer" : "event"} settings stay as they are in Buffer. Caption, media and time changes still save from here.
+                      </p>
+                    ) : (
+                    <>
                     <Segmented
                       label="Google post type"
                       value={g.type}
@@ -861,10 +872,18 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                         {g.button !== "none" && g.button !== "call" && <input value={g.link} onChange={(e) => setGP({ link: e.target.value })} type="url" placeholder="https://" aria-label="Button link" className={small} />}
                       </div>
                     )}
+                    </>
+                    )}
                   </NetworkCard>
                 )}
                 {services.includes("youtube") && (
                   <NetworkCard service="youtube">
+                    {keepsMeta ? (
+                      <p className="text-xs text-slate-500">
+                        This post&rsquo;s YouTube settings stay as they are in Buffer. Caption, media and time changes still save from here.
+                      </p>
+                    ) : (
+                    <>
                     <input value={yt.title} onChange={(e) => setYtP({ title: e.target.value })} maxLength={100} placeholder="Video title (required)" className={small} />
                     <div className="grid grid-cols-2 gap-2">
                       <select value={yt.privacy} onChange={(e) => setYtP({ privacy: e.target.value as typeof yt.privacy })} aria-label="Visibility" className={small}>
@@ -886,6 +905,8 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                     <Toggle checked={yt.madeForKids} onChange={(v) => setYtP({ madeForKids: v })}>
                       Made for kids
                     </Toggle>
+                    </>
+                    )}
                   </NetworkCard>
                 )}
                 {services.includes("tiktok") && (
