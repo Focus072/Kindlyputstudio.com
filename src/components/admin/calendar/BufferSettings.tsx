@@ -1,11 +1,9 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useTransition } from "react";
 import { CircleCheck, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
-import { assignChannel, connectBuffer, disconnectBuffer, refreshChannels, type ActionState } from "@/app/admin/calendar/actions";
+import { connectBuffer, disconnectBuffer, refreshChannels, type ActionState } from "@/app/admin/calendar/actions";
 import { clientsFromChannels } from "@/app/admin/calendar/buffer-actions";
-import { type CalClient, platformInfo } from "@/lib/calendar";
-import { ChannelAvatar } from "./PlatformIcon";
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-ink focus:ring-4 focus:ring-ink/10 sm:text-sm";
@@ -68,43 +66,7 @@ export function BufferConnect({ connected }: { connected: "settings" | "env" | n
   );
 }
 
-type Channel = { id: string; name: string; service: string; avatar: string | null; client_id: string | null; is_disconnected?: boolean | null; removed_at?: string | null };
-
-export function ChannelList({ channels, clients }: { channels: Channel[]; clients: CalClient[] }) {
-  if (!channels.length) return <p className="mt-4 text-sm text-slate-500">No Buffer accounts found yet. Add one in Buffer, then press Sync now.</p>;
-  const color = new Map(clients.map((c) => [c.id, c.color]));
-
-  return (
-    <div className="mt-5">
-      <h3 className="text-sm font-bold text-ink">Which client is each account?</h3>
-      <p className="text-sm text-slate-500">New Buffer accounts are added here on their own and matched to a client by name. Posts take the client&rsquo;s color.</p>
-      {channels.some((c) => !c.client_id) && <AutoClients />}
-      <ul className="mt-3 divide-y divide-slate-100 rounded-2xl ring-1 ring-slate-200">
-        {channels.map((ch) => (
-          <li key={ch.id} className="flex items-center gap-3 px-3 py-2.5">
-            <span className="relative shrink-0">
-              <ChannelAvatar avatar={ch.avatar} service={ch.service} name={ch.name} size="size-9" dim={!!ch.removed_at} />
-              <span
-                className="absolute -left-0.5 -top-0.5 size-3.5 rounded-full ring-2 ring-white"
-                style={{ background: (ch.client_id && color.get(ch.client_id)) || "#cbd5e1" }}
-              />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-ink">{ch.name}</span>
-              <span className={`block text-xs ${ch.removed_at || ch.is_disconnected ? "font-semibold text-amber-700" : "text-slate-500"}`}>
-                {platformInfo(ch.service).label}
-                {ch.removed_at ? " · Removed from Buffer" : ch.is_disconnected ? " · Reconnect in Buffer" : ""}
-              </span>
-            </span>
-            <ChannelSelect key={`${ch.id}-${ch.client_id ?? ""}`} channelId={ch.id} channelName={ch.name} value={ch.client_id ?? ""} clients={clients} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function AutoClients() {
+export function AutoClients() {
   const [state, run, pending] = useActionState(clientsFromChannels, undefined);
   return (
     <form action={run} className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3">
@@ -115,49 +77,5 @@ function AutoClients() {
         {state?.error || state?.ok || "Channels with matching names (like “Joe’s Pizza” and joespizza_bakery) share one client. You can rename, recolor or reassign after."}
       </span>
     </form>
-  );
-}
-
-/**
- * Controlled, so the picked client stays visible while it saves and after the
- * page refreshes (a plain form select snapped back to its first value).
- */
-function ChannelSelect({ channelId, channelName, value, clients }: { channelId: string; channelName: string; value: string; clients: CalClient[] }) {
-  const [current, setCurrent] = useState(value);
-  const [failed, setFailed] = useState(false);
-  const [saving, start] = useTransition();
-  return (
-    <span className="flex shrink-0 flex-col items-end">
-    <select
-      value={current}
-      disabled={saving}
-      onChange={(e) => {
-        const next = e.target.value;
-        const before = current;
-        setCurrent(next);
-        setFailed(false);
-        const fd = new FormData();
-        fd.set("channel_id", channelId);
-        fd.set("client_id", next);
-        start(async () => {
-          const r = await assignChannel(fd);
-          if (r.error) {
-            setCurrent(before);
-            setFailed(true);
-          }
-        });
-      }}
-      aria-label={`Client for ${channelName}`}
-      className="h-10 max-w-40 shrink-0 rounded-xl border border-slate-200 bg-white px-2 text-base outline-none focus:border-ink disabled:opacity-60 sm:max-w-52 sm:text-sm"
-    >
-      <option value="">No client</option>
-      {clients.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.name}
-        </option>
-      ))}
-    </select>
-    {failed && <span className="mt-1 text-[11px] font-semibold text-decline">Didn&rsquo;t save. Try again.</span>}
-    </span>
   );
 }

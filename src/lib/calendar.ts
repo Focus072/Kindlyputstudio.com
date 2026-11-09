@@ -122,8 +122,24 @@ export const TYPE_LABEL: Record<string, string> = {
   event: "Event",
 };
 
-/** Colors offered when adding a client. Picked to stay apart from each other. */
-export const SWATCHES = ["#e4572e", "#f3a712", "#2a9d8f", "#3a86ff", "#8338ec", "#ff006e", "#06a77d", "#6d597a", "#1d3557", "#bc6c25", "#0096c7", "#c9184a"];
+/**
+ * Client colors: muted, earthy tones that sit next to the Ink/Slate/Steel brand
+ * kit and stay readable with white text. Order = the order new clients get them.
+ */
+export const SWATCHES = [
+  "#4f6d8a", // slate blue
+  "#6e8f72", // sage
+  "#b86b4b", // terracotta
+  "#7e5a86", // plum
+  "#b8913f", // ochre
+  "#3f7f7c", // teal
+  "#b07583", // dusty rose
+  "#34495e", // navy
+  "#7c8048", // olive
+  "#8c6a55", // walnut
+  "#5a5f9e", // indigo
+  "#8b3a4a", // wine
+];
 
 export function isHexColor(v: string) {
   return /^#[0-9a-fA-F]{6}$/.test(v);
