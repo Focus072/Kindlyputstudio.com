@@ -1,16 +1,52 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-// Read-only Buffer connection. We never post or change anything in Buffer;
-// we only read the queue so the calendar can show it.
+// Buffer's GraphQL API. The calendar reads every account and post from here
+// and publishes through it. Field names follow Buffer's own CLI
+// (@bufferapp/cli 2.2 schema). Every rich query has a plainer fallback, so a
+// field Buffer renames can't take the calendar down.
 
-const ENDPOINT = "https://api.buffer.com";
+const ENDPOINT = process.env.BUFFER_API_URL || "https://api.buffer.com";
 const KEY_SETTING = "buffer_api_key";
 
 export class BufferError extends Error {}
 
 export type BufferOrg = { id: string; name: string };
-export type BufferChannel = { id: string; organizationId: string; name: string; service: string; avatar: string | null };
+export type BufferSlot = { day: string; times: string[]; paused?: boolean };
+export type BufferChannel = {
+  id: string;
+  organizationId: string;
+  name: string;
+  service: string;
+  avatar: string | null;
+  isDisconnected?: boolean;
+  isLocked?: boolean;
+  isQueuePaused?: boolean;
+  timezone?: string | null;
+  externalLink?: string | null;
+  postingSchedule?: BufferSlot[] | null;
+  boards?: { id: string; name: string }[] | null;
+};
+export type BufferTag = { id: string; name: string; color: string };
+export type BufferAsset = {
+  type: string | null;
+  thumbnail: string | null;
+  mimeType: string | null;
+  source: string | null;
+  image?: { altText?: string | null } | null;
+};
+export type BufferPostMeta = {
+  __typename?: string;
+  type?: string | null;
+  firstComment?: string | null;
+  shouldShareToFeed?: boolean | null;
+  link?: string | null;
+  title?: string | null;
+  privacy?: string | null;
+  url?: string | null;
+  board?: { name?: string | null } | null;
+  details?: { button?: string | null; link?: string | null } | null;
+};
 export type BufferPost = {
   id: string;
   text: string;
@@ -23,7 +59,11 @@ export type BufferPost = {
   /** "notification" means Buffer only sends a phone reminder; someone has to finish posting in the app. */
   schedulingType?: string | null;
   notificationStatus?: string | null;
-  assets: { type: string | null; thumbnail: string | null; mimeType: string | null; source: string | null }[];
+  error?: { message?: string | null } | null;
+  tags?: BufferTag[] | null;
+  author?: { name?: string | null } | null;
+  metadata?: BufferPostMeta | null;
+  assets: BufferAsset[];
 };
 
 /** The saved key (admin settings) wins; BUFFER_API_KEY works as a fallback. */
@@ -52,7 +92,7 @@ async function gql<T>(key: string, query: string, variables?: Record<string, unk
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({ query, variables }),
       cache: "no-store",
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(15_000),
     });
   } catch {
     throw new BufferError("Buffer didn't answer. Try again in a minute.");
@@ -65,50 +105,136 @@ async function gql<T>(key: string, query: string, variables?: Record<string, unk
   return body.data;
 }
 
-export async function bufferOrganizations(key: string): Promise<BufferOrg[]> {
-  const data = await gql<{ account: { organizations: BufferOrg[] } }>(key, `query { account { organizations { id name } } }`);
-  return data.account?.organizations ?? [];
+/** True when Buffer rejected the query's shape (a field or type it doesn't know). */
+function isSchemaError(e: unknown) {
+  return e instanceof BufferError && /Cannot query field|Unknown type|Unknown argument|on type|Fragment|cannot be spread|conflict/i.test(e.message);
 }
 
+/** Runs the richest query Buffer accepts, stepping down on schema errors. */
+async function tiered<T>(key: string, queries: string[], variables?: Record<string, unknown>): Promise<T> {
+  let last: unknown;
+  for (const q of queries) {
+    try {
+      return await gql<T>(key, q, variables);
+    } catch (e) {
+      if (!isSchemaError(e)) throw e;
+      last = e;
+    }
+  }
+  throw last;
+}
+
+// Account and channels ---------------------------------------------------------
+
+export async function bufferAccount(key: string): Promise<{ orgs: BufferOrg[]; timezone: string | null }> {
+  const data = await tiered<{ account: { timezone?: string | null; organizations: BufferOrg[] } }>(key, [
+    `query { account { timezone organizations { id name } } }`,
+    `query { account { organizations { id name } } }`,
+  ]);
+  return { orgs: data.account?.organizations ?? [], timezone: data.account?.timezone ?? null };
+}
+
+export async function bufferOrganizations(key: string): Promise<BufferOrg[]> {
+  return (await bufferAccount(key)).orgs;
+}
+
+type RawChannel = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  service: string;
+  avatar: string | null;
+  organizationId: string;
+  isDisconnected?: boolean | null;
+  isLocked?: boolean | null;
+  isQueuePaused?: boolean | null;
+  timezone?: string | null;
+  externalLink?: string | null;
+  postingSchedule?: { day: string; times: string[] | null; paused?: boolean | null }[] | null;
+  metadata?: { boards?: { serviceId?: string | null; id?: string | null; name?: string | null }[] | null } | null;
+};
+
+const CHANNEL_BASE = "id name displayName service avatar organizationId";
+const CHANNEL_RICH = `${CHANNEL_BASE} isDisconnected isLocked isQueuePaused timezone externalLink postingSchedule { day times paused } metadata { ... on PinterestMetadata { boards { id serviceId name } } }`;
+const CHANNEL_MID = `${CHANNEL_BASE} isDisconnected isLocked isQueuePaused timezone`;
+const channelsQuery = (sel: string) => `query Channels($input: ChannelsInput!) { channels(input: $input) { ${sel} } }`;
+
 export async function bufferChannels(key: string, organizationId: string): Promise<BufferChannel[]> {
-  const data = await gql<{ channels: { id: string; name: string; displayName: string | null; service: string; avatar: string | null; organizationId: string }[] }>(
-    key,
-    `query Channels($input: ChannelsInput!) { channels(input: $input) { id name displayName service avatar organizationId } }`,
-    { input: { organizationId } },
-  );
+  const data = await tiered<{ channels: RawChannel[] }>(key, [channelsQuery(CHANNEL_RICH), channelsQuery(CHANNEL_MID), channelsQuery(CHANNEL_BASE)], {
+    input: { organizationId },
+  });
   return (data.channels ?? []).map((c) => ({
     id: c.id,
     organizationId: c.organizationId || organizationId,
     name: c.displayName || c.name,
     service: c.service,
     avatar: c.avatar || null,
+    isDisconnected: !!c.isDisconnected,
+    isLocked: !!c.isLocked,
+    isQueuePaused: !!c.isQueuePaused,
+    timezone: c.timezone ?? null,
+    externalLink: c.externalLink ?? null,
+    postingSchedule: c.postingSchedule ? c.postingSchedule.map((s) => ({ day: s.day, times: s.times ?? [], paused: !!s.paused })) : null,
+    boards: c.metadata?.boards?.length
+      ? c.metadata.boards.filter((b) => b.serviceId || b.id).map((b) => ({ id: (b.serviceId || b.id) as string, name: b.name || "Board" }))
+      : null,
   }));
 }
 
-const postsQuery = (extra: string) => `query Posts($input: PostsInput!, $after: String) {
+/** Buffer's post tags for an organization. Missing tags never break the calendar. */
+export async function bufferTags(key: string, organizationId: string): Promise<BufferTag[]> {
+  try {
+    const data = await gql<{ tagsV2: { edges: { node: BufferTag }[] } }>(
+      key,
+      `query Tags($input: TagsInput!, $first: Int) { tagsV2(first: $first, input: $input) { edges { node { id name color } } } }`,
+      { input: { organizationId }, first: 100 },
+    );
+    return (data.tagsV2?.edges ?? []).map((e) => e.node).filter((t) => t?.id);
+  } catch {
+    return [];
+  }
+}
+
+// Posts ------------------------------------------------------------------------
+
+const POST_BASE = "id text status dueAt sentAt channelId channelService externalLink assets { type thumbnail mimeType source }";
+const POST_MID = `${POST_BASE} schedulingType notificationStatus`;
+const POST_RICH = `${POST_MID} error { message } tags { id name color } author { name }
+  assets { type thumbnail mimeType source ... on ImageAsset { image { altText } } }
+  metadata {
+    __typename
+    ... on InstagramPostMetadata { type firstComment shouldShareToFeed link }
+    ... on FacebookPostMetadata { type firstComment }
+    ... on LinkedInPostMetadata { firstComment }
+    ... on TiktokPostMetadata { title }
+    ... on YoutubePostMetadata { title privacy }
+    ... on PinterestPostMetadata { title url board { name } }
+    ... on GoogleBusinessPostMetadata { type title details { ... on GoogleBusinessWhatsNewMetaData { button link } } }
+  }`;
+const postsQuery = (sel: string) => `query Posts($input: PostsInput!, $after: String) {
   posts(first: 100, after: $after, input: $input) {
-    edges { node { id text status dueAt sentAt channelId channelService externalLink ${extra} assets { type thumbnail mimeType source } } }
+    edges { node { ${sel} } }
     pageInfo { hasNextPage endCursor }
   }
 }`;
-const POSTS_QUERY = postsQuery("schedulingType notificationStatus");
-const POSTS_QUERY_BASIC = postsQuery("");
+const POST_QUERIES = [postsQuery(POST_RICH), postsQuery(POST_MID), postsQuery(POST_BASE)];
 
 type PostsPage = { posts: { edges: { node: BufferPost }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } };
 
-async function pagedPosts(key: string, input: Record<string, unknown>, maxPages = 5): Promise<BufferPost[]> {
+async function pagedPosts(key: string, input: Record<string, unknown>, maxPages = 6): Promise<BufferPost[]> {
   const out: BufferPost[] = [];
   let after: string | null = null;
-  let query = POSTS_QUERY;
+  let queries = POST_QUERIES;
   for (let i = 0; i < maxPages; i++) {
-    let data: PostsPage;
-    try {
-      data = await gql<PostsPage>(key, query, { input, after });
-    } catch (e) {
-      // The reminder fields are a nice-to-have; never let them break the calendar.
-      if (query === POSTS_QUERY_BASIC || !(e instanceof BufferError) || !/schedulingType|notificationStatus|Cannot query field/i.test(e.message)) throw e;
-      query = POSTS_QUERY_BASIC;
-      data = await gql<PostsPage>(key, query, { input, after });
+    let data: PostsPage | null = null;
+    while (!data) {
+      try {
+        data = await gql<PostsPage>(key, queries[0], { input, after });
+      } catch (e) {
+        // Step down to a plainer query and remember it for the next pages.
+        if (!isSchemaError(e) || queries.length === 1) throw e;
+        queries = queries.slice(1);
+      }
     }
     out.push(...(data.posts?.edges ?? []).map((e) => e.node));
     if (!data.posts?.pageInfo?.hasNextPage || !data.posts.pageInfo.endCursor) break;
@@ -117,7 +243,7 @@ async function pagedPosts(key: string, input: Record<string, unknown>, maxPages 
   return out;
 }
 
-/** Scheduled, sent and failed posts whose time falls inside the range. */
+/** Scheduled, sent, failed and draft posts whose time falls inside the range. */
 export async function bufferPosts(key: string, organizationId: string, start: Date, end: Date): Promise<BufferPost[]> {
   const status = ["scheduled", "sending", "sent", "error", "draft", "needs_approval"];
   let posts: BufferPost[];
@@ -141,7 +267,9 @@ export async function bufferPosts(key: string, organizationId: string, start: Da
 
 // Writing to Buffer ------------------------------------------------------------
 
-export type BufferAssetInput = { image: { url: string } } | { video: { url: string } };
+export type BufferAssetInput =
+  | { image: { url: string; metadata?: { altText: string } } }
+  | { video: { url: string; metadata?: { thumbnailOffset?: number; title?: string } } };
 
 export type CreatePostInput = {
   channelId: string;
@@ -152,6 +280,7 @@ export type CreatePostInput = {
   saveToDraft?: boolean;
   assets?: BufferAssetInput[];
   metadata?: Record<string, unknown>;
+  tagIds?: string[];
   source?: string;
 };
 
@@ -163,6 +292,8 @@ export type EditPostInput = {
   schedulingType?: "automatic";
   saveToDraft?: boolean;
   assets?: BufferAssetInput[];
+  metadata?: Record<string, unknown>;
+  tagIds?: string[];
 };
 
 type PostResult = { __typename: string; post?: { id: string; status: string; dueAt: string | null }; message?: string };

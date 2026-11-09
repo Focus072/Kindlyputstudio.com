@@ -5,6 +5,7 @@ import { CircleCheck, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
 import { assignChannel, connectBuffer, disconnectBuffer, refreshChannels, type ActionState } from "@/app/admin/calendar/actions";
 import { clientsFromChannels } from "@/app/admin/calendar/buffer-actions";
 import { type CalClient, platformInfo } from "@/lib/calendar";
+import { ChannelAvatar } from "./PlatformIcon";
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-ink focus:ring-4 focus:ring-ink/10 sm:text-sm";
@@ -22,7 +23,7 @@ export function BufferConnect({ connected }: { connected: "settings" | "env" | n
           <p className="mr-auto text-sm font-semibold text-ink">Connected to Buffer</p>
           <form action={refresh}>
             <button disabled={refreshing} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink">
-              <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh channels
+              <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Syncing…" : "Sync now"}
             </button>
           </form>
           {connected === "settings" && (
@@ -67,34 +68,33 @@ export function BufferConnect({ connected }: { connected: "settings" | "env" | n
   );
 }
 
-type Channel = { id: string; name: string; service: string; avatar: string | null; client_id: string | null };
+type Channel = { id: string; name: string; service: string; avatar: string | null; client_id: string | null; is_disconnected?: boolean | null; removed_at?: string | null };
 
 export function ChannelList({ channels, clients }: { channels: Channel[]; clients: CalClient[] }) {
-  if (!channels.length) return <p className="mt-4 text-sm text-slate-500">No Buffer channels found yet. Press Refresh channels.</p>;
+  if (!channels.length) return <p className="mt-4 text-sm text-slate-500">No Buffer accounts found yet. Add one in Buffer, then press Sync now.</p>;
   const color = new Map(clients.map((c) => [c.id, c.color]));
 
   return (
     <div className="mt-5">
-      <h3 className="text-sm font-bold text-ink">Which client is each channel?</h3>
-      <p className="text-sm text-slate-500">Posts take the color of the channel&rsquo;s client.</p>
+      <h3 className="text-sm font-bold text-ink">Which client is each account?</h3>
+      <p className="text-sm text-slate-500">New Buffer accounts are added here on their own and matched to a client by name. Posts take the client&rsquo;s color.</p>
       {channels.some((c) => !c.client_id) && <AutoClients />}
       <ul className="mt-3 divide-y divide-slate-100 rounded-2xl ring-1 ring-slate-200">
         {channels.map((ch) => (
           <li key={ch.id} className="flex items-center gap-3 px-3 py-2.5">
             <span className="relative shrink-0">
-              {ch.avatar ? (
-                <img src={ch.avatar} alt="" className="size-9 rounded-full bg-slate-100 object-cover" />
-              ) : (
-                <span className="flex size-9 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">{platformInfo(ch.service).short}</span>
-              )}
+              <ChannelAvatar avatar={ch.avatar} service={ch.service} name={ch.name} size="size-9" dim={!!ch.removed_at} />
               <span
-                className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full ring-2 ring-white"
+                className="absolute -left-0.5 -top-0.5 size-3.5 rounded-full ring-2 ring-white"
                 style={{ background: (ch.client_id && color.get(ch.client_id)) || "#cbd5e1" }}
               />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-ink">{ch.name}</span>
-              <span className="block text-xs text-slate-500">{platformInfo(ch.service).label}</span>
+              <span className={`block text-xs ${ch.removed_at || ch.is_disconnected ? "font-semibold text-amber-700" : "text-slate-500"}`}>
+                {platformInfo(ch.service).label}
+                {ch.removed_at ? " · Removed from Buffer" : ch.is_disconnected ? " · Reconnect in Buffer" : ""}
+              </span>
             </span>
             <ChannelSelect key={`${ch.id}-${ch.client_id ?? ""}`} channelId={ch.id} channelName={ch.name} value={ch.client_id ?? ""} clients={clients} />
           </li>
@@ -109,7 +109,7 @@ function AutoClients() {
   return (
     <form action={run} className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3">
       <button disabled={pending} className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-50">
-        <Sparkles className="size-4" /> {pending ? "Setting up…" : "Make a client for each channel"}
+        <Sparkles className="size-4" /> {pending ? "Setting up…" : "Make a client for each account"}
       </button>
       <span className="min-w-0 flex-1 text-xs text-slate-500">
         {state?.error || state?.ok || "Channels with matching names (like “Joe’s Pizza” and joespizza_bakery) share one client. You can rename, recolor or reassign after."}

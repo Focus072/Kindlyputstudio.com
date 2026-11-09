@@ -36,7 +36,7 @@ export default async function CalendarSettingsPage() {
       <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
         <h2 className="font-display text-3xl uppercase leading-none text-ink">Buffer</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Buffer does the publishing. You write, schedule, edit and delete posts from this calendar. Open Buffer only to connect a new account, then press Refresh channels here.
+          Buffer does the publishing. You write, schedule, edit and delete posts from this calendar. Open Buffer only to connect a new account: it shows up here by itself within a few minutes, or press Sync now.
         </p>
         <BufferConnect connected={key ? key.source : null} />
         {key && <ChannelList channels={channels} clients={clients} />}

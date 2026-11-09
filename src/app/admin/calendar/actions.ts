@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { BufferError, getBufferKey, saveBufferKey } from "@/lib/buffer";
 import { isHexColor, PLATFORMS } from "@/lib/calendar";
-import { syncChannels } from "@/lib/calendar-data";
+import { syncBuffer } from "@/lib/calendar-sync";
 import { studioToUtc } from "@/lib/calendar-time";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -91,8 +91,9 @@ export async function connectBuffer(_prev: ActionState, fd: FormData): Promise<A
   const key = text(fd, "api_key", 400);
   if (key.length < 10) return { error: "Paste the API key from Buffer." };
   try {
-    const { channels } = await syncChannels(key);
+    const r = await syncBuffer(key, { force: true });
     await saveBufferKey(key);
+    const channels = { length: r?.total ?? 0 };
     refresh();
     return { ok: `Connected. Found ${channels.length} channel${channels.length === 1 ? "" : "s"}.` };
   } catch (e) {
@@ -111,7 +112,8 @@ export async function refreshChannels(): Promise<ActionState> {
   const key = await getBufferKey();
   if (!key) return { error: "Connect Buffer first." };
   try {
-    const { channels } = await syncChannels(key.key);
+    const r = await syncBuffer(key.key, { force: true });
+    const channels = { length: r?.total ?? 0 };
     refresh();
     return { ok: `Found ${channels.length} channel${channels.length === 1 ? "" : "s"}.` };
   } catch (e) {
