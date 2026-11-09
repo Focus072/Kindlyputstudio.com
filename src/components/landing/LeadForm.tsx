@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2 } from "lucide-react";
 import { useActionState } from "react";
 import { submitLead } from "@/app/actions";
 
@@ -22,21 +22,30 @@ export function LeadForm() {
 
   return (
     <form action={action} className="grid gap-3 sm:grid-cols-2">
-      <input name="name" required maxLength={80} placeholder="Your name" autoComplete="name" className={field} />
-      <input name="business" maxLength={120} placeholder="Business" autoComplete="organization" className={field} />
-      <input name="email" type="email" required maxLength={160} placeholder="Email" autoComplete="email" className={field} />
-      <input name="phone" type="tel" maxLength={40} placeholder="Phone (optional)" autoComplete="tel" className={field} />
-      <select name="service" defaultValue="" className={`${field} sm:col-span-2 has-[option[value='']:checked]:text-white/40`}>
-        <option value="" disabled className="text-ink">What do you need?</option>
-        {["Photography", "Video", "Photo + video", "Social content", "Not sure yet"].map((s) => (
-          <option key={s} value={s} className="text-ink">{s}</option>
-        ))}
-      </select>
+      <input name="name" required maxLength={80} placeholder="Your name" aria-label="Your name" autoComplete="name" className={field} />
+      <input name="business" maxLength={120} placeholder="Business" aria-label="Business" autoComplete="organization" className={field} />
+      <input name="email" type="email" required maxLength={160} placeholder="Email" aria-label="Email" autoComplete="email" className={field} />
+      <input name="phone" type="tel" maxLength={40} placeholder="Phone (optional)" aria-label="Phone (optional)" autoComplete="tel" className={field} />
+      <div className="relative sm:col-span-2">
+        <select
+          name="service"
+          defaultValue=""
+          aria-label="What do you need?"
+          className={`${field} cursor-pointer appearance-none pr-12 has-[option[value='']:checked]:text-white/40`}
+        >
+          <option value="" disabled className="text-ink">What do you need?</option>
+          {["Photography", "Video", "Photo + video", "Social content", "Not sure yet"].map((s) => (
+            <option key={s} value={s} className="text-ink">{s}</option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-white/50" aria-hidden />
+      </div>
       <textarea
         name="message"
         rows={4}
         maxLength={2000}
         placeholder="Tell us about the shoot: what, where, and when."
+        aria-label="About the shoot"
         className={`${field} resize-none sm:col-span-2`}
       />
       {/* Honeypot: hidden from people, irresistible to bots. */}
@@ -45,7 +54,7 @@ export function LeadForm() {
       <button
         type="submit"
         disabled={pending}
-        className="flex items-center justify-center gap-2 rounded-full bg-steel px-6 py-4 text-sm font-bold uppercase tracking-wider text-ink transition-opacity disabled:opacity-60 sm:col-span-2"
+        className="flex items-center justify-center gap-2 rounded-full bg-steel px-6 py-4 text-sm font-bold uppercase tracking-wider text-ink transition hover:bg-white active:scale-[0.99] disabled:opacity-60 sm:col-span-2"
       >
         {pending && <Loader2 className="size-4 animate-spin" />}
         Start my project
