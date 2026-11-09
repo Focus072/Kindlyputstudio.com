@@ -18,7 +18,7 @@ export function BufferConnect({ connected }: { connected: "settings" | "env" | n
       <div className="mt-4">
         <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-approve/10 px-4 py-3">
           <CircleCheck className="size-5 text-approve" />
-          <p className="mr-auto text-sm font-semibold text-ink">Connected to Buffer</p>
+          <p className="mr-auto text-sm font-semibold text-ink">Connected<span className="max-sm:hidden"> to Buffer</span></p>
           <form action={refresh}>
             <button disabled={refreshing} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink">
               <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Syncing…" : "Sync now"}
