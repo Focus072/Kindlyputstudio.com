@@ -26,6 +26,23 @@ function Badge({ n, className = "" }: { n: number; className?: string }) {
   );
 }
 
+/** Settings gear in the phone header, lit up while you are on Settings. */
+export function AdminSettingsLink() {
+  const on = usePathname().startsWith("/admin/settings");
+  return (
+    <Link
+      href="/admin/settings"
+      aria-label="Settings"
+      aria-current={on ? "page" : undefined}
+      className={`inline-flex size-9 items-center justify-center rounded-full sm:hidden ${
+        on ? "bg-white/12 text-white" : "text-mist/70 hover:bg-white/8 hover:text-white"
+      }`}
+    >
+      <Settings className="size-5" />
+    </Link>
+  );
+}
+
 /** Top nav links on tablet and desktop. */
 export function AdminTopNav({ unread = 0 }: { unread?: number }) {
   const path = usePathname();

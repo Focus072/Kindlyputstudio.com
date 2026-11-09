@@ -37,7 +37,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
           <ClientAvatar name={client.full_name ?? client.email ?? "?"} url={client.avatar_url} size="size-14" />
           <div className="min-w-0">
             <h1 className="break-words font-display text-4xl uppercase leading-none text-ink">{client.full_name ?? "No name"}</h1>
-            <p className="mt-1 break-all text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">
               {client.email} · {client.provider === "google" ? "Google account" : "Email account"} · joined{" "}
               {timeAgo(client.created_at)}
             </p>
