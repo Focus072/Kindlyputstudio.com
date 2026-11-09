@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { Check, Download, Eye, MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type Props = { cover: string | null; thumbs: string[]; client: string; title: string; mark: string };
 
@@ -13,8 +14,25 @@ const float = (delay: number) => ({
 /** A miniature delivery room, tilted, with floating stat cards. Pure markup, no screenshot. */
 export function RoomMockup({ cover, thumbs, client, title, mark }: Props) {
   const grid = thumbs.length ? thumbs.slice(0, 6) : Array.from({ length: 6 }, () => null);
+
+  // On desktop the room leans gently toward the cursor.
+  const tiltX = useSpring(useMotionValue(0), { stiffness: 80, damping: 18 });
+  const tiltY = useSpring(useMotionValue(0), { stiffness: 80, damping: 18 });
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: fine) and (prefers-reduced-motion: no-preference)");
+    if (!mq.matches) return;
+    const onMove = (e: PointerEvent) => {
+      tiltY.set(((e.clientX / window.innerWidth) - 0.5) * 8);
+      tiltX.set(((e.clientY / window.innerHeight) - 0.5) * -5);
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [tiltX, tiltY]);
+
   return (
     <div className="relative mx-auto w-full max-w-[880px] [perspective:1800px]">
+      <Viewfinder />
+      <motion.div style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d" }}>
       <motion.div
         initial={{ opacity: 0, y: 40, rotateX: 22, rotateZ: -4 }}
         animate={{ opacity: 1, y: 0, rotateX: 14, rotateZ: -3 }}
@@ -52,6 +70,7 @@ export function RoomMockup({ cover, thumbs, client, title, mark }: Props) {
           ))}
         </div>
       </motion.div>
+      </motion.div>
 
       {/* Floating stat cards */}
       <motion.div {...float(0)} className="absolute -left-2 top-[18%] sm:-left-10">
@@ -63,6 +82,35 @@ export function RoomMockup({ cover, thumbs, client, title, mark }: Props) {
       <motion.div {...float(2.4)} className="absolute -bottom-4 right-[12%] sm:-bottom-6">
         <Card icon={<MessageCircle className="size-3.5 sm:size-4" />} tone="bg-steel text-ink" big="“Love this one!”" small="new comment" />
       </motion.div>
+    </div>
+  );
+}
+
+/** Camera viewfinder framing around the hero room: corner brackets and exposure readouts. */
+function Viewfinder() {
+  const [frames, setFrames] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setFrames((f) => f + 1), 1000 / 12);
+    return () => clearInterval(id);
+  }, []);
+  const fps = 24;
+  const total = Math.floor(frames * 2);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const tc = `00:${pad(Math.floor(total / fps / 60) % 60)}:${pad(Math.floor(total / fps) % 60)}:${pad(total % fps)}`;
+  const corner = "absolute size-6 border-slate-brand/50 sm:size-10";
+  return (
+    <div aria-hidden className="pointer-events-none absolute -inset-x-3 -bottom-10 -top-8 hidden sm:block lg:-inset-x-20 lg:-bottom-14 lg:-top-12">
+      <span className={`${corner} left-0 top-0 border-l-2 border-t-2`} />
+      <span className={`${corner} right-0 top-0 border-r-2 border-t-2`} />
+      <span className={`${corner} bottom-0 left-0 border-b-2 border-l-2`} />
+      <span className={`${corner} bottom-0 right-0 border-b-2 border-r-2`} />
+      <span className="absolute left-12 top-0 hidden -translate-y-1/2 items-center gap-1.5 font-typewriter text-[11px] text-slate-brand lg:flex">
+        <span className="kp-blink size-2 rounded-full bg-decline" /> REC
+      </span>
+      <span className="absolute right-12 top-0 hidden -translate-y-1/2 font-typewriter text-[11px] text-slate-500 lg:block">4K · 24 FPS · RAW</span>
+      <span className="absolute bottom-0 left-12 hidden translate-y-1/2 font-typewriter text-[11px] text-slate-500 lg:block">ISO 400 · 1/125 · f/2.8</span>
+      <span className="absolute bottom-0 right-12 hidden translate-y-1/2 font-typewriter text-[11px] tabular-nums text-slate-brand lg:block">{tc}</span>
     </div>
   );
 }
