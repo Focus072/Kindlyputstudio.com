@@ -119,3 +119,44 @@ export function gridRange(month: string): { start: Date; end: Date } {
 export function dayLabel(key: string, opts: Intl.DateTimeFormatOptions = { weekday: "long", month: "long", day: "numeric" }) {
   return new Date(`${key}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
 }
+
+export function isDayKey(v: unknown): v is string {
+  return typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v) && !Number.isNaN(Date.parse(`${v}T12:00:00Z`));
+}
+
+/** Day key n days after the given one. */
+export function addDays(key: string, n: number): string {
+  const d = new Date(`${key}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return keyOf(d);
+}
+
+/** The Sunday to Saturday week holding the day. */
+export function weekDays(key: string): string[] {
+  const d = new Date(`${key}T12:00:00Z`);
+  const start = addDays(key, -d.getUTCDay());
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+/** UTC range covering whole studio days, from the first key to the day after the last. */
+export function daysRange(first: string, last: string): { start: Date; end: Date } {
+  return { start: studioToUtc(first), end: studioToUtc(addDays(last, 1)) };
+}
+
+/** "Nov 8 – 14" style label for a week. */
+export function weekLabel(days: string[]): string {
+  const a = new Date(`${days[0]}T12:00:00Z`);
+  const b = new Date(`${days[6]}T12:00:00Z`);
+  const m = (d: Date) => d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  return a.getUTCMonth() === b.getUTCMonth() ? `${m(a)} ${a.getUTCDate()} – ${b.getUTCDate()}` : `${m(a)} ${a.getUTCDate()} – ${m(b)} ${b.getUTCDate()}`;
+}
+
+/** "in 2 hours", "3 days ago". */
+export function relativeLabel(iso: string, now = Date.now()): string {
+  const diff = Date.parse(iso) - now;
+  const abs = Math.abs(diff);
+  const fmt = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
+  if (abs < 60 * 60_000) return fmt.format(Math.round(diff / 60_000), "minute");
+  if (abs < 24 * 3600_000) return fmt.format(Math.round(diff / 3600_000), "hour");
+  return fmt.format(Math.round(diff / 86_400_000), "day");
+}

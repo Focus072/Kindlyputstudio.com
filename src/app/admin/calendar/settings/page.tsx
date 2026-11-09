@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { BufferConnect, ChannelList } from "@/components/admin/calendar/BufferSettings";
-import { ClientColors } from "@/components/admin/calendar/ClientColors";
+import { AutoClients, BufferConnect } from "@/components/admin/calendar/BufferSettings";
+import { ClientAccounts } from "@/components/admin/calendar/ClientColors";
 import { requireAdmin } from "@/lib/auth";
 import { getBufferKey } from "@/lib/buffer";
 import { loadChannels, loadClients } from "@/lib/calendar-data";
@@ -15,7 +15,7 @@ export default async function CalendarSettingsPage() {
   const [{ clients, ready }, channels, key] = await Promise.all([loadClients(), loadChannels(), getBufferKey()]);
 
   return (
-    <main className="max-w-3xl">
+    <main className="max-w-5xl">
       <Link href="/admin/calendar" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:py-2.5">
         <ChevronLeft className="size-4" /> Calendar
       </Link>
@@ -28,18 +28,20 @@ export default async function CalendarSettingsPage() {
       )}
 
       <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <h2 className="font-display text-3xl uppercase leading-none text-ink">Clients &amp; colors</h2>
-        <p className="mt-1 text-sm text-slate-500">Each client gets one color, used for every post of theirs on the calendar.</p>
-        <ClientColors clients={clients} />
+        <h2 className="font-display text-3xl uppercase leading-none text-ink">Buffer</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Buffer does the publishing. You write, schedule and edit posts from the calendar. Open Buffer only to connect a new account: it shows up below on its own within a few minutes, or press Sync now.
+        </p>
+        <BufferConnect connected={key ? key.source : null} />
       </section>
 
       <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
-        <h2 className="font-display text-3xl uppercase leading-none text-ink">Buffer</h2>
+        <h2 className="font-display text-3xl uppercase leading-none text-ink">Clients &amp; accounts</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Buffer does the publishing. You write, schedule, edit and delete posts from this calendar. Open Buffer only to connect a new account, then press Refresh channels here.
+          Each client has one color, used for all of their posts on the calendar. Tap a client&rsquo;s circle to change it, or their name to rename them.
         </p>
-        <BufferConnect connected={key ? key.source : null} />
-        {key && <ChannelList channels={channels} clients={clients} />}
+        {key && channels.some((c) => !c.client_id) && <AutoClients />}
+        <ClientAccounts clients={clients} channels={channels} showAccounts={!!key} />
         <p className="mt-4 text-xs text-slate-400">Times on the calendar are {STUDIO_TZ_LABEL}.</p>
       </section>
     </main>

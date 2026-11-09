@@ -1,7 +1,7 @@
 import "server-only";
-import { BufferError, bufferChannels, bufferOrganizations, bufferPosts, getBufferKey, type BufferChannel } from "@/lib/buffer";
-import type { CalChannel, CalClient, CalPost, CalStatus } from "@/lib/calendar";
-import { gridRange } from "@/lib/calendar-time";
+import { BufferError, type BufferPost, bufferChannels, bufferOrganizations, bufferPosts, getBufferKey } from "@/lib/buffer";
+import type { CalChannel, CalClient, CalPost, CalPostMeta, CalStatus } from "@/lib/calendar";
+import { storeChannels } from "@/lib/calendar-sync";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type BufferState =
@@ -9,48 +9,50 @@ export type BufferState =
   | { state: "ok"; posts: number }
   | { state: "error"; message: string };
 
-type ChannelRow = { id: string; organization_id: string; name: string; service: string; avatar: string | null; client_id: string | null };
+export type ChannelRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  service: string;
+  avatar: string | null;
+  client_id: string | null;
+  is_disconnected?: boolean | null;
+  is_paused?: boolean | null;
+  external_link?: string | null;
+  posting_schedule?: { day: string; times: string[]; paused?: boolean }[] | null;
+  boards?: { id: string; name: string }[] | null;
+  removed_at?: string | null;
+};
 
 export async function loadClients(): Promise<{ clients: CalClient[]; ready: boolean }> {
   const { data, error } = await supabaseAdmin().from("calendar_clients").select("id, name, color").order("name");
   return { clients: (data ?? []) as CalClient[], ready: !error };
 }
 
-/** Channels in the shape the composer uses. */
-export async function loadComposerChannels(): Promise<CalChannel[]> {
-  return (await loadChannels()).map((c) => ({ id: c.id, name: c.name, service: c.service, avatar: c.avatar, clientId: c.client_id }));
-}
-
+/** Every channel we know, including ones Buffer dropped (so old posts keep their client). */
 export async function loadChannels(): Promise<ChannelRow[]> {
-  const { data } = await supabaseAdmin().from("buffer_channels").select("id, organization_id, name, service, avatar, client_id").order("name");
+  const { data } = await supabaseAdmin().from("buffer_channels").select("*").order("name");
   return (data ?? []) as ChannelRow[];
 }
 
-/** Saves channels Buffer reports, keeping each channel's client. */
-export async function storeChannels(channels: BufferChannel[]) {
-  if (!channels.length) return;
-  await supabaseAdmin()
-    .from("buffer_channels")
-    .upsert(
-      channels.map((c) => ({
-        id: c.id,
-        organization_id: c.organizationId,
-        name: c.name,
-        service: c.service,
-        avatar: c.avatar,
-        updated_at: new Date().toISOString(),
-      })),
-      { onConflict: "id" },
-    );
+export function toCalChannel(c: ChannelRow): CalChannel {
+  return {
+    id: c.id,
+    name: c.name,
+    service: c.service,
+    avatar: c.avatar,
+    clientId: c.client_id,
+    needsReconnect: !!c.is_disconnected,
+    paused: !!c.is_paused,
+    link: c.external_link ?? null,
+    schedule: c.posting_schedule ?? null,
+    boards: c.boards ?? null,
+  };
 }
 
-/** Reads every organization's channels from Buffer and saves them. */
-export async function syncChannels(key: string) {
-  const orgs = await bufferOrganizations(key);
-  const lists = await Promise.all(orgs.map((o) => bufferChannels(key, o.id)));
-  const all = lists.flat();
-  await storeChannels(all);
-  return { orgs, channels: all };
+/** Live channels in the shape the calendar and composer use. */
+export async function loadComposerChannels(): Promise<CalChannel[]> {
+  return (await loadChannels()).filter((c) => !c.removed_at).map(toCalChannel);
 }
 
 function bufferStatus(s: string): CalStatus {
@@ -61,9 +63,23 @@ function bufferStatus(s: string): CalStatus {
   return "scheduled";
 }
 
-/** Everything the month view needs: hand-added posts plus Buffer's queue. */
-export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buffer: BufferState }> {
-  const { start, end } = gridRange(month);
+function metaOf(p: BufferPost): CalPostMeta | undefined {
+  const m = p.metadata;
+  if (!m) return undefined;
+  return {
+    type: m.type ?? null,
+    firstComment: m.firstComment ?? null,
+    shareToFeed: m.shouldShareToFeed ?? null,
+    link: m.link ?? m.url ?? m.details?.link ?? null,
+    title: m.title ?? null,
+    privacy: m.privacy ?? null,
+    button: m.details?.button ?? null,
+    boardName: m.board?.name ?? null,
+  };
+}
+
+/** Everything a date range needs: hand-added plans plus every Buffer post. */
+export async function loadRange(start: Date, end: Date): Promise<{ posts: CalPost[]; buffer: BufferState }> {
   const db = supabaseAdmin();
 
   const { data: manual } = await db
@@ -114,7 +130,7 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
       const asset = p.assets?.[0];
       const media = (p.assets ?? [])
         .filter((a) => a.source)
-        .map((a) => ({ url: a.source as string, thumb: a.thumbnail || null, isVideo: /video/i.test(`${a.mimeType} ${a.type}`) }));
+        .map((a) => ({ url: a.source as string, thumb: a.thumbnail || null, isVideo: /video/i.test(`${a.mimeType} ${a.type}`), alt: a.image?.altText ?? null }));
       posts.push({
         id: `buffer-${p.id}`,
         source: "buffer",
@@ -124,14 +140,19 @@ export async function loadMonth(month: string): Promise<{ posts: CalPost[]; buff
         caption: p.text ?? "",
         status: bufferStatus(p.status),
         notes: null,
-        thumb: asset?.thumbnail || null,
+        thumb: asset?.thumbnail || (asset && !/video/i.test(`${asset.mimeType} ${asset.type}`) ? asset.source : null) || null,
         isVideo: !!asset && (/video/i.test(asset.mimeType ?? "") || /video/i.test(asset.type ?? "")),
         channelName: ch?.name ?? null,
+        channelAvatar: ch?.avatar ?? null,
         link: p.externalLink,
         bufferId: p.id,
         channelId: p.channelId,
         media,
         reminder: (p.schedulingType ?? "").toLowerCase() === "notification",
+        errorMessage: p.error?.message ?? null,
+        tags: (p.tags ?? []).filter((t) => t?.id),
+        author: p.author?.name ?? null,
+        meta: metaOf(p),
       });
     }
     posts.sort((a, b) => a.at.localeCompare(b.at));
