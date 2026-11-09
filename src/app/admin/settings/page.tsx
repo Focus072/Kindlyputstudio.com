@@ -2,6 +2,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getStudioSettings } from "@/lib/settings";
 import { SettingsForm } from "./SettingsForm";
 
+export const metadata = { title: "Studio settings" };
+
 export default async function SettingsPage() {
   await requireAdmin();
   const settings = await getStudioSettings();

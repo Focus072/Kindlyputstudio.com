@@ -28,10 +28,12 @@ import {
   type CalTag,
   UNASSIGNED,
   UNASSIGNED_COLOR,
+  channelLabel,
   isEditable,
   platformInfo,
 } from "@/lib/calendar";
 import {
+  STUDIO_TZ_LABEL,
   addDays,
   addMonths,
   dayKey,
@@ -47,6 +49,7 @@ import { Composer, type ComposerMode, duplicateMode } from "./Composer";
 import { ChannelAvatar, PlatformIcon } from "./PlatformIcon";
 import { PostCard, statusTone } from "./PostCard";
 import { PostEditor } from "./PostEditor";
+import { ModalDialog } from "@/components/ModalDialog";
 
 export type CalView = "week" | "month" | "list";
 
@@ -95,12 +98,14 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
   const [editing, setEditing] = useState<CalPost | "new" | null>(null);
   const [composer, setComposer] = useState<ComposerMode | null>(null);
   const [sheet, setSheet] = useState<CalPost | null>(null);
+  const sheetOpener = useRef<HTMLElement | null>(null);
+  const editorOpener = useRef<HTMLElement | null>(null);
   const [moved, setMoved] = useState<Record<string, { from: string; to: string }>>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropDay, setDropDay] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(added.length ? `New in Buffer: ${added.join(", ")}. Added to the calendar.` : null);
   const [now] = useState(() => Date.now());
-  const canPost = buffer.state !== "off" && channels.length > 0;
+  const canPost = buffer.state !== "off" && channels.some((channel) => !channel.needsReconnect);
 
   // Restore the last client filter when the URL doesn't name one.
   useEffect(() => {
@@ -203,7 +208,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
   }, [posts, platform, clientIds]);
   const services = useMemo(() => [...new Set([...channels.map((c) => platformInfo(c.service).id), ...posts.map((p) => platformInfo(p.platform).id)])], [channels, posts]);
   const hasUnassigned = posts.some((p) => clientOf(p) === UNASSIGNED) || channels.some((c) => !c.clientId || !clientIds.has(c.clientId));
-  const reconnect = channels.filter((c) => c.needsReconnect && (client === "all" || c.clientId === client));
+  const reconnect = channels.filter((c) => c.needsReconnect && (client === "all" || clientOf(c) === client));
 
   // Navigation ---------------------------------------------------------------
   const week = weekDays(anchor);
@@ -216,12 +221,23 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
   const nextHref = view === "week" ? qs({ view, d: addDays(anchor, 7) }) : qs({ view, m: addMonths(month, 1) });
   const isCurrent = view === "week" ? week.includes(today) : today.startsWith(month);
   const rangeLabel = view === "week" ? weekLabel(week) : monthLabel(month);
-  const shortLabel = view === "week" ? rangeLabel : monthLabel(month).replace(/^(\w{3})\w*/, "$1");
   const inRange = shown.filter((p) => (view === "week" ? week.includes(dayKey(p.at)) : dayKey(p.at).startsWith(month)));
 
-  function setView(v: CalView) {
-    rememberView(v);
-    router.push(v === "week" ? qs({ view: v, d: today.startsWith(month) || view === "week" ? anchor : `${month}-01` }) : qs({ view: v, m: view === "week" ? anchor.slice(0, 7) : month }));
+  function viewHref(v: CalView) {
+    return v === "week"
+      ? qs({ view: v, d: today.startsWith(month) || view === "week" ? anchor : `${month}-01` })
+      : qs({ view: v, m: view === "week" ? anchor.slice(0, 7) : month });
+  }
+
+  function showToday() {
+    if (view !== "week" || !isCurrent) {
+      router.push(qs({ view: "week", d: today }));
+      return;
+    }
+    const desktop = document.getElementById(`day-${today}`);
+    const day = desktop?.getClientRects().length ? desktop : document.getElementById(`day-m-${today}`);
+    day?.scrollIntoView({ block: "start" });
+    day?.focus({ preventScroll: true });
   }
 
   function refresh() {
@@ -233,16 +249,19 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
   }
 
   function newPost(date = selected) {
+    editorOpener.current = null;
     const d = date >= today ? date : today;
     if (canPost) setComposer({ kind: "new", date: d, clientId: client !== "all" && client !== UNASSIGNED ? client : null });
     else setEditing("new");
   }
 
   function openPost(p: CalPost) {
+    sheetOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSheet(p);
   }
 
   function editPost(p: CalPost) {
+    editorOpener.current = sheet ? sheetOpener.current : null;
     setSheet(null);
     if (p.source === "manual") setEditing(p);
     else setComposer({ kind: "edit", post: p });
@@ -305,7 +324,11 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
       color={colorOf(clientOf(p))}
       clientName={nameOf(clientOf(p))}
       onEdit={isEditable(p) ? () => editPost(p) : undefined}
-      onDuplicate={canPost && (p.caption || p.media.length) ? () => (setSheet(null), setComposer(duplicateMode(p, today))) : undefined}
+      onDuplicate={canPost && (p.caption || p.media.length) ? () => {
+        editorOpener.current = sheet ? sheetOpener.current : null;
+        setSheet(null);
+        setComposer(duplicateMode(p, today));
+      } : undefined}
     />
   );
 
@@ -339,9 +362,10 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
           <Link
             href="/admin/calendar/settings"
             aria-label="Calendar settings"
-            className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink"
           >
-            <Settings className="size-5" />
+            <Settings className="size-4" />
+            <span><span className="hidden sm:inline">Calendar </span>Settings</span>
           </Link>
           <button
             onClick={() => newPost(isCurrent ? today : selected)}
@@ -372,7 +396,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
       )}
       {reconnect.length > 0 && (
         <Notice tone="warn">
-          Buffer lost access to {reconnect.map((c) => c.name).join(", ")}. Posts there won&rsquo;t go out until you reconnect {reconnect.length === 1 ? "it" : "them"} in{" "}
+          {reconnect.length === 1 ? "Account needs" : "Accounts need"} reconnection before publishing: {reconnect.map((c) => channelLabel(c, channels)).join(", ")}. Reconnect in{" "}
           <a href="https://publish.buffer.com/channels" target="_blank" rel="noreferrer" className="font-semibold text-ink underline underline-offset-2">
             Buffer
           </a>
@@ -404,7 +428,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                 ? `${summary.todays.filter((p) => p.status === "posted").length} out · ${summary.todays.filter((p) => p.status === "scheduled").length} to go`
                 : "Nothing goes out today"
             }
-            onClick={() => (view === "week" && isCurrent ? document.getElementById(`day-${today}`)?.scrollIntoView({ behavior: "smooth", block: "start" }) : router.push(qs({ view: "week", d: today })))}
+            onClick={showToday}
           />
           <button
             type="button"
@@ -441,15 +465,15 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
             icon={<CalendarRange className="size-4" />}
             label="Next 7 days"
             value={`${summary.upcoming.length} scheduled`}
-            detail={summary.quiet.length ? `Nothing for ${summary.quiet.map((c) => c.name).slice(0, 2).join(", ")}${summary.quiet.length > 2 ? ` +${summary.quiet.length - 2}` : ""}` : "Every client has posts"}
+            detail={summary.quiet.length ? `${summary.quiet.length} client${summary.quiet.length === 1 ? "" : "s"} without posts` : "Every client has posts"}
             warn={summary.quiet.length > 0}
             onClick={() => router.push(qs({ view: "week", d: today }))}
           />
           <Stat
             icon={<CircleAlert className="size-4" />}
-            label="Needs a look"
-            value={summary.attention.length ? `${summary.attention.length} post${summary.attention.length === 1 ? "" : "s"}` : "All clear"}
-            detail={summary.attention.length ? `${summary.failed ? `${summary.failed} failed · ` : ""}drafts and reminders` : "No failed posts or drafts"}
+            label="Posts to review"
+            value={`${summary.attention.length} post${summary.attention.length === 1 ? "" : "s"}`}
+            detail={buffer.state === "error" ? "Buffer status unavailable" : summary.attention.length ? `${summary.failed} failed · drafts and reminders` : "No failed posts, drafts or reminders"}
             warn={summary.failed > 0}
             active={status === "attention"}
             onClick={() => setStatus(status === "attention" ? "all" : "attention")}
@@ -459,29 +483,21 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
 
       {/* Range switcher and view */}
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
-        <div className="order-1 flex min-w-0 flex-1 items-center gap-1">
+        <div className="order-1 flex w-full min-w-0 items-center gap-1 sm:w-auto sm:flex-[1_1_14rem]">
           <Link href={prevHref} aria-label={view === "week" ? "Previous week" : "Previous month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100">
             <ChevronLeft className="size-5" />
           </Link>
-          <div className="min-w-0 px-1">
-            <p className="truncate font-display text-2xl uppercase leading-none text-ink sm:text-3xl">
-              <span className="sm:hidden">{shortLabel}</span>
-              <span className="hidden sm:inline">{rangeLabel}</span>
-            </p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">
+          <div className="min-w-0 flex-1 px-1">
+            <p className="font-display text-2xl uppercase leading-tight text-ink sm:text-3xl">{rangeLabel}</p>
+            <p className="mt-0.5 break-words text-xs text-slate-600">
               {inRange.length} post{inRange.length === 1 ? "" : "s"}
               {activeClient ? ` · ${activeClient.name}` : ""}
-              {buffer.state === "ok" ? " · live from Buffer" : ""}
+              {" · "}{STUDIO_TZ_LABEL}
             </p>
           </div>
           <Link href={nextHref} aria-label={view === "week" ? "Next week" : "Next month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100">
             <ChevronRight className="size-5" />
           </Link>
-          {!isCurrent && (
-            <Link href={qs({ view })} className="ml-1 inline-flex h-9 shrink-0 items-center rounded-full border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink">
-              Today
-            </Link>
-          )}
         </div>
         <div className="order-3 flex w-full items-center gap-2 sm:order-2 sm:w-auto">
           <select value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label="Network" className="h-10 min-w-0 flex-1 rounded-full border border-slate-200 bg-white pl-3 pr-8 text-sm font-semibold text-slate-600 sm:flex-none">
@@ -500,7 +516,8 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
             <option value="attention">Needs a look</option>
           </select>
         </div>
-        <div role="radiogroup" aria-label="View" className="order-2 flex shrink-0 rounded-full bg-slate-100 p-1 sm:order-3">
+        <div className="order-2 flex w-full items-center justify-between gap-2 sm:order-3 sm:w-auto">
+          <nav aria-label="Calendar view" className="flex shrink-0 rounded-full bg-slate-100 p-1">
             {(
               [
                 { id: "week", label: "Week", icon: CalendarRange },
@@ -508,18 +525,24 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                 { id: "list", label: "List", icon: List },
               ] as const
             ).map((v) => (
-              <button
+              <Link
                 key={v.id}
-                role="radio"
-                aria-checked={view === v.id}
+                href={viewHref(v.id)}
+                aria-current={view === v.id ? "page" : undefined}
                 aria-label={v.label}
-                onClick={() => view !== v.id && setView(v.id)}
-                className={`inline-flex size-8 items-center justify-center rounded-full lg:w-auto lg:gap-1.5 lg:px-3 ${view === v.id ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"}`}
+                onClick={() => rememberView(v.id)}
+                className={`inline-flex size-11 items-center justify-center rounded-full lg:w-auto lg:gap-1.5 lg:px-3 ${view === v.id ? "bg-white text-ink shadow-sm" : "text-slate-600 hover:text-ink"}`}
               >
                 <v.icon className="size-4" />
                 <span className="hidden text-xs font-semibold lg:inline">{v.label}</span>
-              </button>
+              </Link>
             ))}
+          </nav>
+          {!isCurrent && (
+            <Link href={qs({ view })} className="inline-flex h-11 shrink-0 items-center rounded-full border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink">
+              Today
+            </Link>
+          )}
         </div>
       </div>
 
@@ -548,7 +571,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               const items = byDay.get(k) ?? [];
               const past = k < today;
               return (
-                <div key={k} id={`day-${k}`} {...dropProps(k)} className={`group flex min-h-[28rem] min-w-0 flex-col ${i ? "border-l border-slate-100" : ""} ${dropDay === k && dragId ? "bg-steel/30" : past ? "bg-slate-50/60" : ""}`}>
+                <div key={k} id={`day-${k}`} tabIndex={-1} role="group" aria-label={dayLabel(k)} {...dropProps(k)} className={`flex min-h-[28rem] scroll-mt-24 min-w-0 flex-col ${i ? "border-l border-slate-100" : ""} ${dropDay === k && dragId ? "bg-steel/30" : past ? "bg-slate-50/60" : ""}`}>
                   <div className={`flex items-center justify-between gap-1 border-b border-slate-100 px-2.5 py-2 ${k === today ? "bg-ink text-white" : ""}`}>
                     <span className="flex items-baseline gap-1.5">
                       <span className={`text-[11px] font-bold uppercase tracking-wider ${k === today ? "text-mist" : "text-slate-400"}`}>{WEEKDAYS[i]}</span>
@@ -557,8 +580,8 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                     {!past && dbReady && (
                       <button
                         onClick={() => newPost(k)}
-                        aria-label={`New post on ${dayLabel(k)}`}
-                        className={`inline-flex size-7 items-center justify-center rounded-full opacity-0 transition group-hover:opacity-100 focus:opacity-100 ${k === today ? "hover:bg-white/15" : "hover:bg-slate-100"}`}
+                        aria-label={`${canPost ? "New post" : "Add a plan"} on ${dayLabel(k)}`}
+                        className={`inline-flex size-11 shrink-0 items-center justify-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 ${k === today ? "hover:bg-white/15 focus-visible:outline-white" : "text-slate-600 hover:bg-slate-100 focus-visible:outline-ink"}`}
                       >
                         <Plus className="size-4" />
                       </button>
@@ -568,11 +591,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                     {items.map((p) => (
                       <WeekTile key={p.id} post={p} color={colorOf(clientOf(p))} onOpen={() => openPost(p)} dragging={dragId === p.id} {...dragProps(p)} />
                     ))}
-                    {!items.length && !past && dbReady && (
-                      <button onClick={() => newPost(k)} className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-transparent text-xs font-semibold text-slate-300 hover:border-slate-300 hover:text-slate-500">
-                        + Plan a post
-                      </button>
-                    )}
+                    {!items.length && !past && <p className="py-4 text-center text-xs text-slate-600">Nothing planned</p>}
                   </div>
                 </div>
               );
@@ -585,20 +604,20 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               const items = byDay.get(k) ?? [];
               const past = k < today;
               return (
-                <section key={k} id={`day-m-${k}`} className="scroll-mt-24">
+                <section key={k} id={`day-m-${k}`} tabIndex={-1} aria-labelledby={`heading-day-m-${k}`} className="scroll-mt-24">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <h2 className={`font-display text-2xl uppercase leading-none ${past ? "text-slate-400" : "text-ink"}`}>
+                    <h2 id={`heading-day-m-${k}`} className={`font-display text-2xl uppercase leading-none ${past ? "text-slate-500" : "text-ink"}`}>
                       {dayLabel(k, { weekday: "long", month: "short", day: "numeric" })}
                       {k === today && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle font-sans text-[10px] font-bold text-white">TODAY</span>}
                     </h2>
                     {!past && dbReady && (
-                      <button onClick={() => newPost(k)} aria-label={`New post on ${dayLabel(k)}`} className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink">
+                      <button onClick={() => newPost(k)} aria-label={`${canPost ? "New post" : "Add a plan"} on ${dayLabel(k)}`} className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink">
                         <Plus className="size-4" />
                       </button>
                     )}
                   </div>
                   {items.length ? (
-                    <ul className="grid gap-3 md:grid-cols-2">
+                    <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {items.map((p) => (
                         <li key={p.id}>{card(p)}</li>
                       ))}
@@ -701,7 +720,10 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               <div className="flex shrink-0 gap-1.5">
                 {canPost && (
                   <button
-                    onClick={() => setEditing("new")}
+                    onClick={() => {
+                      editorOpener.current = null;
+                      setEditing("new");
+                    }}
                     disabled={!dbReady}
                     aria-label="Add a plan on this day"
                     title="Add a plan (only on this calendar)"
@@ -756,8 +778,8 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
       )}
 
       {sheet && <PostSheet onClose={() => setSheet(null)}>{card(sheet)}</PostSheet>}
-      {editing && <PostEditor post={editing === "new" ? null : editing} defaultDate={selected} clients={clients} onClose={() => setEditing(null)} />}
-      {composer && <Composer mode={composer} clients={clients} channels={channels} tags={tags} today={today} onClose={() => setComposer(null)} />}
+      {editing && <PostEditor post={editing === "new" ? null : editing} defaultDate={selected} clients={clients} onClose={() => setEditing(null)} returnFocusRef={editorOpener} />}
+      {composer && <Composer mode={composer} clients={clients} channels={channels} tags={tags} today={today} onClose={() => setComposer(null)} returnFocusRef={editorOpener} />}
     </main>
   );
 }
@@ -838,8 +860,8 @@ function Stat({
       <span className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${active ? "text-mist" : "text-slate-400"}`}>
         {icon} {label}
       </span>
-      <span className="mt-0.5 block truncate text-sm font-bold sm:text-base">{value}</span>
-      <span className={`block truncate text-xs ${active ? "text-mist" : warn ? "font-semibold text-amber-700" : "text-slate-500"}`}>{detail}</span>
+      <span className="mt-0.5 block break-words text-sm font-bold sm:text-base">{value}</span>
+      <span className={`block break-words text-xs ${active ? "text-mist" : warn ? "font-semibold text-amber-700" : "text-slate-600"}`}>{detail}</span>
     </button>
   );
 }
@@ -942,22 +964,21 @@ function ListView({ month, today, byDay, card, onNew }: { month: string; today: 
 }
 
 function PostSheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Post" onClick={(e) => e.stopPropagation()} className="relative max-h-[90dvh] w-full overflow-y-auto rounded-t-3xl bg-[#f6f7f8] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-3xl">
+    <ModalDialog
+      label="Post details"
+      className="open:flex items-end justify-center backdrop:bg-ink/50 backdrop:backdrop-blur-sm sm:items-center sm:p-6"
+      onDismiss={onClose}
+    >
+      <div className="relative max-h-[90dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-[#f6f7f8] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-3xl">
         <div className="mb-2 flex justify-end">
-          <button onClick={onClose} aria-label="Close" className="inline-flex size-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:text-ink">
+          <button type="button" data-dialog-initial-focus onClick={onClose} aria-label="Close" className="inline-flex size-11 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:text-ink">
             <X className="size-4" />
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

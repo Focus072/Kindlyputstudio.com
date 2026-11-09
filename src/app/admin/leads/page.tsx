@@ -4,6 +4,8 @@ import { timeAgo } from "@/lib/format";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { setLeadStatus } from "./actions";
 
+export const metadata = { title: "Leads" };
+
 type Lead = {
   id: string;
   name: string;
@@ -47,31 +49,31 @@ export default async function LeadsPage() {
             <li key={l.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold text-ink">{l.name}</p>
+                  <h2 className="text-lg font-bold text-ink [overflow-wrap:anywhere]">{l.name}</h2>
                   <p className="text-sm text-slate-500">
                     {[l.business, l.service].filter(Boolean).join(" · ") || "No details"}{" "}
-                    <span className="whitespace-nowrap">· {timeAgo(l.created_at)}</span>
+                    <time dateTime={l.created_at} className="whitespace-nowrap">· {timeAgo(l.created_at)}</time>
                   </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase ${tone[l.status]}`}>{l.status}</span>
               </div>
-              {l.message && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{l.message}</p>}
+              {l.message && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 [overflow-wrap:anywhere]">{l.message}</p>}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <a href={`mailto:${l.email}`} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-ink px-3.5 py-2 text-sm font-semibold text-white">
-                  <Mail className="size-4 shrink-0" /> <span className="truncate">{l.email}</span>
+                <a href={`mailto:${l.email}`} className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-2xl bg-ink px-3.5 py-2 text-sm font-semibold text-white">
+                  <Mail className="size-4 shrink-0" /> <span className="min-w-0 [overflow-wrap:anywhere]">{l.email}</span>
                 </a>
                 {l.phone && (
-                  <a href={`tel:${l.phone}`} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700">
-                    <Phone className="size-4" /> {l.phone}
+                  <a href={`tel:${l.phone}`} className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700">
+                    <Phone className="size-4 shrink-0" /> <span className="[overflow-wrap:anywhere]">{l.phone}</span>
                   </a>
                 )}
-                <form action={setLeadStatus} className="flex w-full items-center gap-2 border-t border-slate-100 pt-3 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">
-                  <span className="mr-auto text-xs text-slate-400 sm:mr-0">Mark as</span>
+                <form action={setLeadStatus} aria-label={`Set status for ${l.name}`} className="flex w-full flex-wrap items-center gap-2 border-t border-slate-100 pt-3 sm:ml-auto sm:w-auto sm:border-0 sm:pt-0">
+                  <span className="basis-full text-xs font-semibold text-slate-600 sm:basis-auto">Mark as</span>
                   <input type="hidden" name="id" value={l.id} />
                   {(["contacted", "won", "closed"] as const)
                     .filter((s) => s !== l.status)
                     .map((s) => (
-                      <button key={s} name="status" value={s} className="min-h-9 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold capitalize text-slate-600 transition-colors hover:border-ink hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+                      <button key={s} name="status" value={s} aria-label={`Mark ${l.name} as ${s}`} className="min-h-11 rounded-full border border-slate-200 px-3.5 py-1.5 text-xs font-semibold capitalize text-slate-600 transition-colors hover:border-ink hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
                         {s}
                       </button>
                     ))}

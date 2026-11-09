@@ -32,9 +32,9 @@ export function AdminSettingsLink() {
   return (
     <Link
       href="/admin/settings"
-      aria-label="Settings"
+      aria-label="Studio settings"
       aria-current={on ? "page" : undefined}
-      className={`inline-flex size-9 items-center justify-center rounded-full sm:hidden ${
+      className={`inline-flex size-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel sm:hidden ${
         on ? "bg-white/12 text-white" : "text-mist/70 hover:bg-white/8 hover:text-white"
       }`}
     >
@@ -47,21 +47,25 @@ export function AdminSettingsLink() {
 export function AdminTopNav({ unread = 0 }: { unread?: number }) {
   const path = usePathname();
   return (
-    <nav className="hidden items-center gap-1 text-sm font-semibold sm:flex">
+    <nav aria-label="Admin" className="hidden items-center gap-1 text-sm font-semibold sm:flex">
       {tabs
         .filter((t) => t.href !== "/admin/rooms/new")
-        .map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={`rounded-full px-3 py-2 transition-colors lg:px-4 ${
-              t.match(path) ? "bg-white/12 text-white" : "text-mist/70 hover:bg-white/8 hover:text-white"
-            }`}
-          >
-            {t.label}
-            {t.href === "/admin/activity" && <Badge n={unread} className="ml-1.5 inline-block align-middle" />}
-          </Link>
-        ))}
+        .map((t) => {
+          const active = t.match(path) || (t.href === "/admin" && path === "/admin/rooms/new");
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              aria-current={path === t.href ? "page" : active ? "location" : undefined}
+              className={`rounded-full px-2 py-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel md:px-3 lg:px-4 ${
+                active ? "bg-white/12 text-white" : "text-mist/80 hover:bg-white/8 hover:text-white"
+              }`}
+            >
+              {t.label}
+              {t.href === "/admin/activity" && <Badge n={unread} className="ml-1.5 inline-block align-middle" />}
+            </Link>
+          );
+        })}
     </nav>
   );
 }
@@ -83,9 +87,10 @@ export function AdminTabBar({ unread = 0 }: { unread?: number }) {
             <li key={t.href}>
               <Link
                 href={t.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${
-                  active ? "text-white" : "text-mist/60"
+                aria-label={isNew ? t.label : undefined}
+                aria-current={path === t.href ? "page" : active ? "location" : undefined}
+                className={`flex h-full flex-col items-center gap-1 py-2.5 text-[11px] font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-steel ${
+                  active ? "text-white" : "text-mist/80"
                 }`}
               >
                 {isNew ? (
@@ -102,7 +107,12 @@ export function AdminTabBar({ unread = 0 }: { unread?: number }) {
                     {t.href === "/admin/activity" && <Badge n={unread} className="absolute -right-1.5 -top-0.5" />}
                   </span>
                 )}
-                {t.label}
+                {isNew ? (
+                  <span aria-hidden="true">
+                    <span className="min-[375px]:hidden">New</span>
+                    <span className="hidden min-[375px]:inline">New room</span>
+                  </span>
+                ) : t.label}
               </Link>
             </li>
           );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { brand } from "@/config/brand";
 import { DEFAULT_THEME, getTheme, themeList } from "@/config/themes";
 import type { RoomRow } from "@/lib/types";
@@ -16,16 +16,28 @@ type Props = {
 };
 
 const field =
-  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:text-sm";
+  "w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:text-sm";
 
 export function RoomForm({ action, room, submitLabel, defaults }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [preset, setPreset] = useState(room?.theme_preset ?? defaults?.theme ?? DEFAULT_THEME);
   const [payment, setPayment] = useState(room?.payment_status ?? "none");
   const [accent, setAccent] = useState(room?.accent_color ?? getTheme(preset).accent);
+  const [visibility, setVisibility] = useState(room?.status ?? "draft");
+  const willPublish = !!room && room.status !== "live" && visibility === "live";
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (pending) return;
+        // Dispatch explicitly to keep edited values in the form after saving.
+        const data = new FormData(event.currentTarget);
+        startTransition(() => formAction(data));
+      }}
+      className="space-y-5"
+    >
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Project title</span>
@@ -42,10 +54,11 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Link expires (optional)</span>
           <input
+            id="room-expiration"
             name="expires_at"
             type="date"
             defaultValue={room?.expires_at ? room.expires_at.slice(0, 10) : ""}
-            className={field}
+            className={`${field} scroll-mt-24`}
           />
         </label>
       </div>
@@ -170,34 +183,56 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
       )}
 
       {room && (
-        <label className="block max-w-xs">
-          <span className="mb-1.5 block text-sm font-semibold text-slate-700">Status</span>
-          <select name="status" defaultValue={room.status} className={field}>
-            <option value="live">Live (client can open it)</option>
-            <option value="draft">Draft (hidden from client)</option>
-            <option value="archived">Archived (closed)</option>
-          </select>
-        </label>
+        <>
+          <section aria-labelledby="room-publishing" className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h3 id="room-publishing" tabIndex={-1} className="scroll-mt-24 text-base font-bold text-ink">Client publishing</h3>
+            <p id="room-status-help" className="mt-1 text-sm text-slate-600">
+              Choose Live and save to open the room under its client access and expiration settings.
+            </p>
+            <label className="mt-3 block max-w-xs">
+              <span className="mb-1.5 block text-sm font-semibold text-slate-700">Room status</span>
+              <select
+                name="status"
+                value={visibility}
+                onChange={(event) => setVisibility(event.target.value as RoomRow["status"])}
+                aria-describedby="room-status-help"
+                className={field}
+              >
+                <option value="draft">Draft</option>
+                <option value="live">Live</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+          </section>
+          <fieldset id="room-portfolio" tabIndex={-1} className="scroll-mt-24 rounded-2xl border border-slate-200 p-4">
+            <legend className="px-1 text-base font-bold text-ink">Public portfolio</legend>
+            <label className="flex min-h-11 items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="showcase"
+                defaultChecked={room.showcase}
+                aria-describedby="showcase-help"
+                className="mt-0.5 size-5 shrink-0 accent-[#1d2b32]"
+              />
+              <span className="font-semibold text-ink">Include this shoot in Recent work</span>
+            </label>
+            <p id="showcase-help" className="text-sm text-slate-600">
+              The public home page can show the project name and up to 12 photos. Draft and expired rooms can appear here when this is selected. Archived rooms are excluded.
+            </p>
+          </fieldset>
+        </>
       )}
 
-      {room && (
-        <label className="flex items-start gap-3 text-sm text-slate-700">
-          <input type="checkbox" name="showcase" defaultChecked={room.showcase} className="mt-0.5 size-5 accent-[#1d2b32]" />
-          <span>
-            <span className="font-semibold text-ink">Show in Recent work on the home page</span>
-            <span className="block text-slate-500">Uses this room&rsquo;s photos as a portfolio piece. The room itself stays private.</span>
-          </span>
-        </label>
-      )}
-
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.ok && <p className={`text-sm ${state.warning ? "text-amber-700" : "text-approve"}`}>{state.warning ?? "Saved."}</p>}
+      {state?.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
+      <p role="status" className={`empty:sr-only text-sm ${state?.warning ? "text-amber-700" : "text-emerald-800"}`}>
+        {state?.ok ? state.warning ?? "Saved." : ""}
+      </p>
       <button
         type="submit"
         disabled={pending}
         className="rounded-full bg-ink px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
       >
-        {pending ? "Saving…" : submitLabel}
+        {pending ? "Saving…" : willPublish ? "Save and publish" : submitLabel}
       </button>
     </form>
   );

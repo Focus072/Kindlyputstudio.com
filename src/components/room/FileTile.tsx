@@ -11,8 +11,8 @@ type Props = {
   file: RoomFile;
   index: number;
   onOpen: () => void;
-  onReview: (status: "approved" | "changes") => void;
-  onComment: () => void;
+  onReview?: (status: "approved" | "changes") => void;
+  onComment?: () => void;
   /** Keep the file's own shape instead of cropping to 4:5. */
   natural?: boolean;
   /** Studio name tiled over the preview. */
@@ -136,7 +136,7 @@ export function FileTile({ file, index, onOpen, onReview, onComment, natural, wa
         {!(isVideo && playing) && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
         )}
-        {!(isVideo && playing) && (
+        {onReview && onComment && !(isVideo && playing) && (
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3">
             <ReviewButtons
               status={file.status}

@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Lock, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { ModalDialog } from "@/components/ModalDialog";
 import type { RoomFile } from "@/lib/types";
 import { ReviewButtons } from "./ReviewButtons";
 import { SaveButton } from "./SaveButton";
@@ -23,6 +24,10 @@ type Props = {
   watermark?: string | null;
   /** Admins can always download. */
   alwaysDownload?: boolean;
+  /** Explicit studio previews suppress download actions. */
+  hideDownload?: boolean;
+  /** The read-only admin viewer restores focus to its gallery tile. */
+  dialogOpener?: RefObject<HTMLElement | null>;
 };
 
 const statusChip = {
@@ -33,7 +38,7 @@ const statusChip = {
 const statusShort = { approved: "Approved", changes: "Changes", pending: "Pending" } as const;
 const statusText = { approved: "Approved", changes: "Changes requested", pending: "Pending review" } as const;
 
-export function Lightbox({ files, index, slug, onIndex, onReview, onComment, startAt, watermark, alwaysDownload }: Props) {
+export function Lightbox({ files, index, slug, onIndex, onReview, onComment, startAt, watermark, alwaysDownload, hideDownload, dialogOpener }: Props) {
   const file = index === null ? null : files[index];
   const videoRef = useRef<HTMLVideoElement>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -43,7 +48,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
   const setVersionId = (id: string | null) => setPicked({ fileId: file?.id ?? null, versionId: id });
 
   useEffect(() => {
-    if (index === null) return;
+    if (index === null || dialogOpener) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onIndex(null);
       if (e.key === "ArrowRight") onIndex((index + 1) % files.length);
@@ -56,7 +61,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [index, files.length, onIndex]);
+  }, [index, files.length, onIndex, dialogOpener]);
 
   // A timestamp tapped while this video is already open: jump there now.
   useEffect(() => {
@@ -73,7 +78,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
       : { videoUrl: file.videoUrl, posterUrl: file.posterUrl, imageUrl: file.previewUrl ?? file.thumbUrl ?? file.posterUrl }
     : null;
   const status = older ? older.status : file?.status ?? "pending";
-  const canDownload = !!file && !older && (alwaysDownload || file.canDownload);
+  const canDownload = !hideDownload && !!file && !older && (alwaysDownload || file.canDownload);
 
   function currentTime(): number | null {
     if (!file || file.kind !== "video" || older) return null;
@@ -81,7 +86,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
     return typeof t === "number" && Number.isFinite(t) ? t : null;
   }
 
-  return (
+  const content = (
     <AnimatePresence>
       {file && media && index !== null && (
         <motion.div
@@ -95,7 +100,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
               {index + 1} / {files.length} · {file.fileName}
             </p>
             <div className="flex items-center gap-2">
-              {canDownload ? (
+              {hideDownload ? null : canDownload ? (
                 <SaveButton
                   key={file.id}
                   href={`/r/${slug}/download/${file.id}`}
@@ -114,6 +119,7 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
               )}
               <button
                 type="button"
+                data-dialog-initial-focus
                 onClick={() => onIndex(null)}
                 aria-label="Close"
                 className="flex size-9 items-center justify-center rounded-full border border-white/15 hover:bg-white/10"
@@ -284,4 +290,29 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
       )}
     </AnimatePresence>
   );
+
+  if (dialogOpener) {
+    if (!file || index === null) return null;
+    return (
+      <ModalDialog
+        label={`File preview: ${file.fileName}`}
+        className="[&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-offset-2 [&_button:focus-visible]:outline-white"
+        onDismiss={() => onIndex(null)}
+        returnFocusRef={dialogOpener}
+        onKeyDown={(event) => {
+          if (files.length < 2 || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey || event.target instanceof HTMLMediaElement) return;
+          if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+          event.preventDefault();
+          // The focused download or version button can disappear when the file changes.
+          event.currentTarget.querySelector<HTMLButtonElement>("[data-dialog-initial-focus]")?.focus({ preventScroll: true });
+          const step = event.key === "ArrowRight" ? 1 : -1;
+          onIndex((index + step + files.length) % files.length);
+        }}
+      >
+        {content}
+      </ModalDialog>
+    );
+  }
+
+  return content;
 }

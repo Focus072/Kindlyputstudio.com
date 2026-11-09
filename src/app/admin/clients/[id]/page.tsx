@@ -5,6 +5,8 @@ import { requireAdmin } from "@/lib/auth";
 import { getClientDetail } from "@/lib/clients-data";
 import { timeAgo } from "@/lib/format";
 
+export const metadata = { title: "Client details" };
+
 const verbs: Record<string, string> = {
   view: "Opened",
   approve: "Approved",
@@ -84,7 +86,7 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
                   {a.room ? <span className="text-slate-500">{a.room}</span> : null}
                   {a.times > 1 ? <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">{a.times}×</span> : null}
                 </span>
-                <span className="shrink-0 text-xs text-slate-400">{timeAgo(a.at)}</span>
+                <time dateTime={a.at} className="shrink-0 text-xs text-slate-600">{timeAgo(a.at)}</time>
               </li>
             ))}
           </ul>

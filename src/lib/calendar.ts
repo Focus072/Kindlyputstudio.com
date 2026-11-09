@@ -102,6 +102,34 @@ export function platformInfo(id: string) {
   return PLATFORMS.find((p) => p.id === key) ?? { id: key || "other", label: id || "Other", short: (id || "•").slice(0, 2).toUpperCase(), color: "#64748b" };
 }
 
+type ChannelIdentity = Pick<CalChannel, "id" | "name" | "service"> & { link?: string | null; external_link?: string | null };
+
+function profileDetail(channel: ChannelIdentity) {
+  try {
+    const url = new URL(channel.link ?? channel.external_link ?? "");
+    const path = url.pathname.replace(/^\/+|\/+$/g, "");
+    const id = url.searchParams.get("id") ?? url.searchParams.get("cid");
+    return id || (path && path !== "profile.php" ? path : "");
+  } catch {
+    return "";
+  }
+}
+
+/** Network and, for lookalike names, the profile or stable Buffer account identifier. */
+export function channelDetail(channel: ChannelIdentity, channels: ChannelIdentity[]) {
+  const network = platformInfo(channel.service);
+  const duplicates = channels.filter((c) => c.id !== channel.id && platformInfo(c.service).id === network.id && c.name.trim().toLowerCase() === channel.name.trim().toLowerCase());
+  if (!duplicates.length) return network.label;
+  const profile = profileDetail(channel);
+  if (profile && !duplicates.some((c) => profileDetail(c) === profile)) return `${network.label} · ${profile}`;
+  const shortId = channel.id.slice(-6);
+  return `${network.label} · Account ${duplicates.some((c) => c.id.endsWith(shortId)) ? channel.id : shortId}`;
+}
+
+export function channelLabel(channel: ChannelIdentity, channels: ChannelIdentity[]) {
+  return `${channel.name} · ${channelDetail(channel, channels)}`;
+}
+
 export const STATUS_LABEL: Record<CalStatus, string> = {
   idea: "Idea",
   draft: "Draft",

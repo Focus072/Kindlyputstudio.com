@@ -9,6 +9,7 @@ export type ActivityItem = {
   createdAt: string;
   roomId: string;
   roomTitle: string;
+  currentFileId: string | null;
   fileName: string | null;
 };
 
@@ -16,21 +17,26 @@ export type ActivityItem = {
 export async function listActivity(limit = 60, opts: { includeViews?: boolean } = {}): Promise<ActivityItem[]> {
   let q = supabaseAdmin()
     .from("activity")
-    .select("id, type, actor_name, created_at, room_id, rooms(title), files(file_name)")
+    .select("id, type, actor_name, created_at, room_id, file_id, rooms(title), files(file_name, replaced_by)")
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (!opts.includeViews) q = q.neq("type", "view").neq("type", "reset");
+  if (!opts.includeViews) q = q.neq("type", "view");
   const { data } = await q;
   const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
-  return (data ?? []).map((a) => ({
-    id: a.id as string,
-    type: a.type as ActivityItem["type"],
-    actor: (a.actor_name as string | null) ?? null,
-    createdAt: a.created_at as string,
-    roomId: a.room_id as string,
-    roomTitle: one(a.rooms as { title: string } | { title: string }[] | null)?.title ?? "A room",
-    fileName: one(a.files as { file_name: string } | { file_name: string }[] | null)?.file_name ?? null,
-  }));
+  type ActivityFile = { file_name: string; replaced_by: string | null };
+  return (data ?? []).map((a) => {
+    const file = one(a.files as ActivityFile | ActivityFile[] | null);
+    return {
+      id: a.id as string,
+      type: a.type as ActivityItem["type"],
+      actor: (a.actor_name as string | null) ?? null,
+      createdAt: a.created_at as string,
+      roomId: a.room_id as string,
+      roomTitle: one(a.rooms as { title: string } | { title: string }[] | null)?.title ?? "A room",
+      currentFileId: file && !file.replaced_by ? a.file_id as string | null : null,
+      fileName: file?.file_name ?? null,
+    };
+  });
 }
 
 /** Count of client actions since this admin last opened the Activity tab. */
@@ -43,7 +49,7 @@ export async function unreadActivityCount(): Promise<number> {
     let q = db
       .from("activity")
       .select("id", { count: "exact", head: true })
-      .in("type", ["approve", "decline", "comment", "submit", "access_request"]);
+      .in("type", ["approve", "decline", "reset", "comment", "submit", "access_request"]);
     if (me?.activity_seen_at) q = q.gt("created_at", me.activity_seen_at);
     const { count } = await q;
     return count ?? 0;
@@ -80,6 +86,6 @@ export function describe(a: ActivityItem): string {
     case "view":
       return `${who} opened the room`;
     default:
-      return `${who} reset a review`;
+      return `${who} reset the review for${file}`;
   }
 }

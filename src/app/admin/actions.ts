@@ -53,7 +53,7 @@ function roomFields(formData: FormData) {
     preset,
     accent,
     expiresAt,
-    status: ["draft", "live", "archived"].includes(status) ? status : "live",
+    status,
     showcase: formData.get("showcase") === "on",
   };
 }
@@ -79,7 +79,8 @@ export async function createRoom(_prev: FormState, formData: FormData): Promise<
       accent_color: f.accent,
       expires_at: f.expiresAt,
       intro: f.intro,
-      status: "live",
+      status: "draft",
+      showcase: false,
     })
     .select("id")
     .single();
@@ -95,7 +96,11 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
   await requireAdmin();
   const f = roomFields(formData);
   if (!f.title || !f.clientName) return { error: "Title and client name are required." };
-  const { error } = await supabaseAdmin()
+  if (f.status !== "draft" && f.status !== "live" && f.status !== "archived") {
+    return { error: "Choose a room status before saving." };
+  }
+  const hasPastLiveExpiration = f.status === "live" && !!f.expiresAt && new Date(f.expiresAt).getTime() <= Date.now();
+  let update = supabaseAdmin()
     .from("rooms")
     .update({
       title: f.title,
@@ -115,7 +120,13 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
       updated_at: new Date().toISOString(),
     })
     .eq("id", roomId);
+  // An expired room that is already live can still be edited. A transition to live needs a usable link.
+  if (hasPastLiveExpiration) update = update.eq("status", "live");
+  const { data, error } = await update.select("id").maybeSingle();
   if (error) return { error: error.message };
+  if (!data) {
+    return { error: hasPastLiveExpiration ? "Change or clear the past expiration date before making the room live." : "This room no longer exists." };
+  }
   revalidatePath(`/admin/rooms/${roomId}`);
   revalidatePath("/admin");
   revalidatePath("/");
