@@ -53,7 +53,13 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
   const room = await getRoomBySlug(slug);
   if (!room) notFound();
 
-  const [admin, client, studio] = await Promise.all([isAdmin(), getClientUser(), getStudioSettings()]);
+  const previewRequested = sp.preview === "1";
+  const [admin, client, studio] = await Promise.all([
+    isAdmin(),
+    previewRequested ? null : getClientUser(),
+    getStudioSettings(),
+  ]);
+  if (previewRequested && !admin) notFound();
   if (!isRoomOpen(room) && !admin) return <RoomClosed room={room} expired={isRoomExpired(room)} studio={studio} />;
 
   const roomProps = {
@@ -119,6 +125,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
       brand={brandProps}
       viewer={client ? { name: client.name, avatarUrl: client.avatarUrl } : null}
       preview={admin && !client}
+      readOnly={previewRequested}
       adminRoomId={admin ? room.id : null}
     />
   );

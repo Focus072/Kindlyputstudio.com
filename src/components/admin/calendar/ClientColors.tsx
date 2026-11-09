@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { ArrowRightLeft, Check, ChevronDown, ExternalLink, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { assignChannel, deleteClient, saveClient } from "@/app/admin/calendar/actions";
-import { type CalClient, PLATFORMS, SWATCHES, platformInfo } from "@/lib/calendar";
+import { type CalClient, PLATFORMS, SWATCHES, channelDetail, platformInfo } from "@/lib/calendar";
 import { ChannelAvatar, PlatformIcon } from "./PlatformIcon";
 
 export type SettingsChannel = {
@@ -11,6 +11,7 @@ export type SettingsChannel = {
   name: string;
   service: string;
   avatar: string | null;
+  external_link?: string | null;
   client_id: string | null;
   is_disconnected?: boolean | null;
   removed_at?: string | null;
@@ -99,9 +100,9 @@ export function ClientAccounts({ clients, channels, showAccounts }: { clients: C
               <li key={ch.id} className="flex items-center gap-2.5 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200/70">
                 <ChannelAvatar avatar={ch.avatar} service={ch.service} name={ch.name} size="size-7" badge="size-3" dim />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-slate-500">{ch.name}</span>
-                  <span className="block truncate text-[11px] text-slate-400">
-                    {platformInfo(ch.service).label}
+                  <span className="block break-words text-sm text-slate-600">{ch.name}</span>
+                  <span className="block break-words text-xs text-slate-600">
+                    {channelDetail(ch, channels)}
                     {ch.client_id && known.has(ch.client_id) ? ` · ${clients.find((c) => c.id === ch.client_id)?.name}` : ""}
                   </span>
                 </span>
@@ -256,7 +257,7 @@ function NetworkColumns({ channels, clients }: { channels: SettingsChannel[]; cl
           </p>
           <ul className={groups.length === 1 ? "grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3" : "space-y-1.5"}>
             {list.map((ch) => (
-              <AccountRow key={`${ch.id}-${ch.client_id ?? ""}`} channel={ch} clients={clients} />
+              <AccountRow key={ch.id} channel={ch} detail={channelDetail(ch, list)} clients={clients} />
             ))}
           </ul>
         </div>
@@ -265,7 +266,7 @@ function NetworkColumns({ channels, clients }: { channels: SettingsChannel[]; cl
   );
 }
 
-function AccountRow({ channel: ch, clients }: { channel: SettingsChannel; clients: CalClient[] }) {
+function AccountRow({ channel: ch, detail, clients }: { channel: SettingsChannel; detail: string; clients: CalClient[] }) {
   const [current, setCurrent] = useState(ch.client_id ?? "");
   const [failed, setFailed] = useState(false);
   const [saving, start] = useTransition();
@@ -290,16 +291,17 @@ function AccountRow({ channel: ch, clients }: { channel: SettingsChannel; client
     <li className={`flex items-center gap-2.5 rounded-xl bg-white py-2 pl-2.5 pr-1 ring-1 ring-slate-200/80 ${saving ? "opacity-60" : ""}`}>
       <ChannelAvatar avatar={ch.avatar} service={ch.service} name={ch.name} size="size-8" badge="size-3.5" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-ink">{ch.name}</span>
+        <span className="block break-words text-sm font-semibold text-ink">{ch.name}</span>
+        <span className="block break-words text-xs text-slate-600">{detail}</span>
         {failed ? (
           <span className="block text-[11px] font-semibold text-decline">Didn&rsquo;t save. Try again.</span>
         ) : ch.is_disconnected ? (
-          <a href={BUFFER_CHANNELS} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline">
+          <a href={BUFFER_CHANNELS} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-amber-800 hover:underline">
             Reconnect in Buffer <ExternalLink className="size-3" />
           </a>
         ) : null}
       </span>
-      <MoveMenu name={ch.name} current={current} clients={clients} onMove={move} />
+      <MoveMenu name={`${ch.name} · ${detail}`} current={current} clients={clients} onMove={move} />
     </li>
   );
 }
@@ -351,7 +353,8 @@ function MoveMenu({ name, current, clients, onMove }: { name: string; current: s
           onClick={() => setOpen(!open)}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="mr-1 inline-flex h-8 items-center gap-1 rounded-full bg-ink px-3 text-xs font-semibold text-white hover:bg-slate-brand"
+          aria-label={`Pick client for ${name}`}
+          className="mr-1 inline-flex h-11 items-center gap-1 rounded-full bg-ink px-3 text-xs font-semibold text-white hover:bg-slate-brand"
         >
           Pick client <ChevronDown className="size-3.5" />
         </button>

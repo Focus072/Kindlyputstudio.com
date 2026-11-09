@@ -8,7 +8,7 @@ import { loadClients, loadComposerChannels, loadRange } from "@/lib/calendar-dat
 import { type SyncResult, loadBufferMeta, syncBuffer } from "@/lib/calendar-sync";
 import { addDays, dayKey, daysRange, gridRange, isDayKey, isMonthKey, weekDays } from "@/lib/calendar-time";
 
-export const metadata: Metadata = { title: "Content calendar" };
+export const metadata: Metadata = { title: "Calendar" };
 
 const VIEWS: CalView[] = ["week", "month", "list"];
 

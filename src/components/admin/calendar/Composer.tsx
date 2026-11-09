@@ -1,18 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from "react";
+import { ModalDialog } from "@/components/ModalDialog";
+import { useVisibleViewport } from "@/lib/visible-viewport";
 import { Check, CircleAlert, Clapperboard, GripVertical, ImagePlus, Loader2, Play, Search, Send, Tag, Trash2, Type, X } from "lucide-react";
 import {
   type ChannelResult,
-  type ComposerMedia,
-  type NetworkOptions,
   createSocialUpload,
   publishPosts,
   removeBufferPost,
   updateBufferPost,
 } from "@/app/admin/calendar/buffer-actions";
-import { CAPTION_LIMIT, type CalChannel, type CalClient, type CalPost, type CalTag, platformInfo } from "@/lib/calendar";
+import { CAPTION_LIMIT, type CalChannel, type CalClient, type CalPost, type CalTag, channelDetail, channelLabel, platformInfo } from "@/lib/calendar";
+import { type ComposerMedia, type NetworkOptions, MAX_PUBLISH_DESTINATIONS, metadataFor, postContentIssue, scheduledTime } from "@/lib/calendar-publishing";
 import { STUDIO_TZ_LABEL, addDays, dayKey, dayLabel, timeInput } from "@/lib/calendar-time";
 import { uploadWithProgress } from "@/lib/media";
 import { ChannelAvatar, PlatformIcon } from "./PlatformIcon";
@@ -22,7 +23,7 @@ export type ComposerMode =
   | { kind: "new"; date?: string; clientId?: string | null; text?: string; media?: (ComposerMedia & { thumb?: string | null })[] }
   | { kind: "edit"; post: CalPost };
 
-type Props = { mode: ComposerMode; clients: CalClient[]; channels: CalChannel[]; tags: CalTag[]; today: string; onClose: () => void };
+type Props = { mode: ComposerMode; clients: CalClient[]; channels: CalChannel[]; tags: CalTag[]; today: string; onClose: () => void; returnFocusRef?: RefObject<HTMLElement | null> };
 
 type Tile = {
   id: string;
@@ -116,7 +117,7 @@ function to12h(t: string) {
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
-export function Composer({ mode, clients, channels, tags, today, onClose }: Props) {
+export function Composer({ mode, clients, channels, tags, today, onClose, returnFocusRef }: Props) {
   const router = useRouter();
   const editing = mode.kind === "edit" ? mode.post : null;
   const editChannel = editing ? (channels.find((c) => c.id === editing.channelId) ?? null) : null;
@@ -200,6 +201,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [dragTile, setDragTile] = useState<string | null>(null);
+  const viewport = useVisibleViewport(true);
 
   // Keep an unsent caption if the composer is closed by accident.
   useEffect(() => {
@@ -211,16 +213,6 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
       /* private mode */
     }
   }, [text, editing]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !pending && onClose();
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onClose, pending]);
 
   const opt = <T,>(set: (fn: (v: T) => T) => void) => (patch: Partial<T>) => {
     setOptionsTouched(true);
@@ -250,13 +242,12 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
   // in Buffer instead of overwriting them with defaults.
   const keepsMeta =
     !!editing?.bufferId && (services[0] === "youtube" || (services[0] === "googlebusiness" && (meta?.type === "offer" || meta?.type === "event")));
-  const over = services.filter((s) => CAPTION_LIMIT[s] && textFor(s).length > CAPTION_LIMIT[s]);
 
   const previewChannel = chosen.find((c) => c.id === previewId) ?? chosen[0] ?? null;
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const match = (ch: CalChannel) => !q || ch.name.toLowerCase().includes(q) || (clients.find((c) => c.id === ch.clientId)?.name.toLowerCase().includes(q) ?? false);
+    const match = (ch: CalChannel) => !q || channelLabel(ch, channels).toLowerCase().includes(q) || (clients.find((c) => c.id === ch.clientId)?.name.toLowerCase().includes(q) ?? false);
     const out = clients.map((c) => ({ client: c as CalClient | null, items: channels.filter((ch) => ch.clientId === c.id && match(ch)) })).filter((x) => x.items.length);
     const loose = channels.filter((ch) => (!ch.clientId || !clients.some((c) => c.id === ch.clientId)) && match(ch));
     if (loose.length) out.push({ client: null, items: loose });
@@ -348,12 +339,43 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
     pinterest: pin,
   };
 
+  const contentIssues = !editing || mediaTouched
+    ? services.map((service) => postContentIssue(service, textFor(service), media, options, !editing)).filter((issue) => issue !== null)
+    : [];
+  const mediaIssue = contentIssues.find((issue) => issue.field === "media")?.message;
+  const contentIssue = contentIssues[0]?.message;
+  const longCaption = services.find((s) => CAPTION_LIMIT[s] && textFor(s).length > CAPTION_LIMIT[s]);
+  const optionIssue = !editing || (optionsTouched && !keepsMeta)
+    ? chosen.map((channel) => {
+        const service = platformInfo(channel.service).id;
+        const board = boards[channel.id];
+        if (service === "pinterest" && !board) return `Choose a Pinterest board for ${channelLabel(channel, channels)}.`;
+        return metadataFor(service, options, media, board).error;
+      }).find(Boolean)
+    : undefined;
+  const failedUpload = tiles.some((tile) => tile.error);
+
+  function submitIssue(w: When) {
+    if (!editing && chosen.length === 0) return "Pick at least one account to post to.";
+    if (!editing && selected.size > MAX_PUBLISH_DESTINATIONS) return `Select up to ${MAX_PUBLISH_DESTINATIONS} accounts per post.`;
+    if (w !== "draft" && editChannel?.needsReconnect) return "Reconnect this account in Buffer before publishing.";
+    if (uploading) return "Wait for the uploads to finish.";
+    if (failedUpload) return "Remove the files that didn't upload first.";
+    if (longCaption) return `Caption is over ${platformInfo(longCaption).label}'s ${CAPTION_LIMIT[longCaption]} characters.`;
+    if (contentIssue || optionIssue) return contentIssue ?? optionIssue;
+    if (w === "schedule") {
+      const scheduled = scheduledTime(date, time);
+      if ("error" in scheduled) return scheduled.error;
+    }
+  }
+
+  const issue = submitIssue(when);
+
   function submit(whenOverride?: When) {
     const w = whenOverride ?? when;
     setError(null);
-    if (uploading) return setError("Wait for the uploads to finish.");
-    if (tiles.some((t) => t.error)) return setError("Remove the files that didn't upload first.");
-    if (over.length) return setError(`The caption is too long for ${over.map((s) => platformInfo(s).label).join(", ")}.`);
+    const issue = submitIssue(w);
+    if (issue) return setError(issue);
     start(async () => {
       if (editing?.bufferId) {
         const r = await updateBufferPost({
@@ -444,7 +466,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
               key={c.id}
               type="button"
               onClick={() => setPreviewId(c.id)}
-              aria-label={`Preview ${c.name}`}
+              aria-label={`Preview ${channelLabel(c, channels)}`}
               aria-pressed={previewChannel?.id === c.id}
               className={`rounded-full p-0.5 ring-2 transition ${previewChannel?.id === c.id ? "ring-ink" : "ring-transparent opacity-60 hover:opacity-100"}`}
             >
@@ -484,14 +506,15 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => !pending && onClose()}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={editing ? "Edit post" : "New post"}
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-dvh w-full flex-col overflow-hidden bg-[#f6f7f8] shadow-2xl sm:h-[94dvh] sm:max-w-6xl sm:rounded-3xl"
-      >
+    <ModalDialog
+      label={editing ? "Edit post" : "New post"}
+      className="open:flex items-stretch justify-center backdrop:bg-ink/60 backdrop:backdrop-blur-sm sm:items-center sm:p-4"
+      style={viewport}
+      onDismiss={onClose}
+      dismissible={!pending}
+      returnFocusRef={returnFocusRef}
+    >
+      <div className="flex h-full w-full flex-col overflow-hidden bg-[#f6f7f8] shadow-2xl sm:max-h-[94dvh] sm:max-w-6xl sm:rounded-3xl">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-5 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:pt-3">
           <h2 className="mr-auto font-display text-3xl uppercase leading-none text-ink">{editing ? (editing.status === "error" ? "Fix post" : "Edit post") : "New post"}</h2>
@@ -509,7 +532,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
               </button>
             ))}
           </div>
-          <button onClick={onClose} disabled={pending} aria-label="Close" className="inline-flex size-10 items-center justify-center rounded-full hover:bg-slate-100">
+          <button type="button" data-dialog-initial-focus onClick={onClose} disabled={pending} aria-label="Close" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-slate-100">
             <X className="size-5" />
           </button>
         </div>
@@ -531,7 +554,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                   <ChannelAvatar avatar={editChannel?.avatar} service={editChannel?.service ?? editing.platform} name={editChannel?.name ?? editing.channelName} size="size-10" />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">{editChannel?.name ?? editing.channelName ?? "Buffer account"}</span>
-                    <span className="block text-xs text-slate-500">{platformInfo(editing.platform).label}</span>
+                    <span className="block break-words text-xs text-slate-600">{editChannel ? channelDetail(editChannel, channels) : platformInfo(editing.platform).label}</span>
                   </span>
                 </div>
               ) : channels.length === 0 ? (
@@ -550,7 +573,13 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                       const all = ids.length > 0 && ids.every((id) => selected.has(id));
                       return (
                         <div key={client?.id ?? "none"} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <button type="button" onClick={() => toggleClient(ids)} className="flex min-w-0 items-center gap-2 text-left sm:w-44 sm:shrink-0" title={all ? "Unselect all" : "Select all"}>
+                          <button
+                            type="button"
+                            onClick={() => toggleClient(ids)}
+                            aria-label={`${client?.name ?? "Unassigned"}: ${all ? "deselect" : "select"} all ${ids.length} available accounts`}
+                            disabled={ids.length === 0}
+                            className="flex min-w-0 items-center gap-2 text-left disabled:opacity-60 sm:w-44 sm:shrink-0"
+                          >
                             <span className={`flex size-4 shrink-0 items-center justify-center rounded border ${all ? "border-ink bg-ink" : "border-slate-300"}`}>{all && <Check className="size-3 text-white" strokeWidth={3} />}</span>
                             <span className="size-2.5 shrink-0 rounded-full" style={{ background: client?.color ?? "#cbd5e1" }} />
                             <span className="truncate text-sm font-semibold text-ink">{client?.name ?? "No client yet"}</span>
@@ -565,14 +594,17 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                                   aria-pressed={on}
                                   disabled={ch.needsReconnect}
                                   onClick={() => toggleChannel(ch.id)}
-                                  title={ch.needsReconnect ? `${ch.name} needs reconnecting in Buffer` : `${ch.name} · ${platformInfo(ch.service).label}`}
-                                  className={`relative flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                                  aria-label={`${channelLabel(ch, channels)}${ch.needsReconnect ? ", reconnect in Buffer" : ""}`}
+                                  className={`relative flex min-h-11 max-w-full items-center gap-2 rounded-2xl py-1 pl-1 pr-3 text-left text-sm font-semibold transition disabled:cursor-not-allowed ${
                                     on ? "bg-ink text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                   }`}
                                 >
                                   <ChannelAvatar avatar={ch.avatar} service={ch.service} name={ch.name} size="size-8" badge="size-3.5" dim={!!ch.needsReconnect} />
-                                  <span className="max-w-[11rem] truncate">{ch.name}</span>
-                                  {ch.needsReconnect && <CircleAlert className="size-3.5 text-amber-600" />}
+                                  <span className="min-w-0 break-words">
+                                    <span className="block">{ch.name}</span>
+                                    <span className={`block text-xs ${on ? "text-mist" : "text-slate-600"}`}>{channelDetail(ch, channels)}</span>
+                                    {ch.needsReconnect && <span className="block text-xs text-amber-800">Reconnect in Buffer</span>}
+                                  </span>
                                   {on && (
                                     <span className="absolute -left-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-approve ring-2 ring-white">
                                       <Check className="size-2.5 text-white" strokeWidth={4} />
@@ -586,6 +618,11 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                       );
                     })}
                   </div>
+                  {channels.some((channel) => channel.needsReconnect) && (
+                    <a href="https://publish.buffer.com/channels" target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-amber-800 underline underline-offset-2">
+                      Manage account connections in Buffer
+                    </a>
+                  )}
                 </div>
               )}
             </section>
@@ -596,6 +633,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
                 <h3 className="text-sm font-bold text-ink">Photos or video</h3>
                 {tiles.length > 0 && <span className="text-xs text-slate-400">{hasVideo ? "Pick a cover frame below" : tiles.length > 1 ? "Drag to reorder · tap for alt text" : "Tap for alt text"}</span>}
               </div>
+              {mediaIssue && <p className="mb-2 text-sm text-amber-800">{mediaIssue}</p>}
               <div
                 onDragOver={(e) => {
                   if (dragTile) return;
@@ -1050,7 +1088,16 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
 
         {/* Footer */}
         <div className="border-t border-slate-200 bg-white px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
-          {error && <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {issue && issue !== error && <p id="composer-submit-issue" role="status" className="mb-2 text-sm text-slate-700">{issue}</p>}
+          {when === "now" && !issue && chosen.length > 0 && (
+            <div className="mb-2 text-sm text-slate-700">
+              <p className="font-semibold">Posting now to</p>
+              <ul className="max-h-20 space-y-0.5 overflow-y-auto">
+                {chosen.map((channel) => <li key={channel.id} className="break-words">{channelLabel(channel, channels)}</li>)}
+              </ul>
+            </div>
+          )}
           {results && (
             <ul className="mb-2 space-y-1 rounded-xl bg-slate-50 px-3 py-2 text-sm">
               {results.map((r) => (
@@ -1086,7 +1133,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
               <button
                 type="button"
                 onClick={() => submit("draft")}
-                disabled={pending || uploading || selected.size === 0}
+                disabled={pending || !!submitIssue("draft")}
                 className="hidden h-12 shrink-0 items-center rounded-full border border-slate-200 px-5 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink disabled:opacity-40 sm:inline-flex"
               >
                 Save as draft
@@ -1095,7 +1142,8 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
             <button
               type="button"
               onClick={() => submit()}
-              disabled={pending || uploading || (!editing && selected.size === 0)}
+              disabled={pending || !!issue}
+              aria-describedby={issue && issue !== error ? "composer-submit-issue" : undefined}
               className="ml-auto inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-6 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40 sm:ml-0 sm:flex-none"
             >
               {pending ? <Loader2 className="size-4 animate-spin" /> : when === "now" ? <Send className="size-4" /> : null}
@@ -1104,7 +1152,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
           </div>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }
 

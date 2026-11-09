@@ -35,6 +35,7 @@ import { useVisibleViewport } from "@/lib/visible-viewport";
 import type { RoomComment, RoomFile } from "@/lib/types";
 import { uploadToRoom } from "@/lib/upload-client";
 import { Lightbox } from "@/components/room/Lightbox";
+import { ModalDialog } from "@/components/ModalDialog";
 
 const statusStyle = {
   approved: "bg-approve text-white",
@@ -154,11 +155,12 @@ function NewVersionButton({ roomId, file, className, children }: { roomId: strin
 
 export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string; slug: string; files: RoomFile[]; heroId: string | null }) {
   const [pending, start] = useTransition();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [reply, setReply] = useState("");
+  const [replies, setReplies] = useState<Record<string, string>>({});
   const [sheetId, setSheetId] = useState<string | null>(null);
   const sheetViewport = useVisibleViewport(sheetId !== null);
   const [viewIndex, setViewIndex] = useState<number | null>(null);
+  const previewOpener = useRef<HTMLButtonElement>(null);
+  const actionsOpener = useRef<HTMLButtonElement>(null);
   const [order, setOrder] = useState(files);
   const [dragId, setDragId] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
@@ -173,6 +175,7 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
 
   const sheetIndex = order.findIndex((f) => f.id === sheetId);
   const sheetFile = sheetIndex >= 0 ? order[sheetIndex] : null;
+  const reply = sheetFile ? replies[sheetFile.id] ?? "" : "";
   const sets = [...new Set(files.map((f) => f.category).filter(Boolean) as string[])];
 
   function remove(f: RoomFile) {
@@ -224,9 +227,6 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
     return <p className="rounded-3xl bg-white p-8 text-center text-sm text-slate-500 ring-1 ring-slate-200">No files yet. Drop some above.</p>;
   }
 
-  const btn =
-    "inline-flex size-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-ink disabled:opacity-30";
-
   return (
     <>
     <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -252,11 +252,12 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
 
     <ul className={`grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 ${pending ? "opacity-70" : ""}`}>
       {order.map((f, i) => {
-        const open = openId === f.id;
         const isSelected = selected.has(f.id);
         return (
           <li
             key={f.id}
+            id={`file-${f.id}`}
+            tabIndex={-1}
             draggable={!selecting}
             onDragStart={(e) => {
               setDragId(f.id);
@@ -270,15 +271,23 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
               dropOn(f.id);
             }}
             onDragEnd={() => setDragId(null)}
-            className={`overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ${
+            className={`scroll-mt-20 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 target:ring-2 target:ring-ink ${
               isSelected ? "ring-2 ring-brand" : dragId === f.id ? "opacity-40 ring-slate-200" : "ring-slate-200"
             }`}
           >
             <button
               type="button"
               className={`relative block aspect-[4/5] w-full bg-ink ${selecting ? "cursor-pointer" : "cursor-zoom-in"}`}
-              onClick={() => (selecting ? toggle(f.id) : setViewIndex(i))}
+              onClick={(event) => {
+                if (selecting) {
+                  toggle(f.id);
+                } else {
+                  previewOpener.current = event.currentTarget;
+                  setViewIndex(i);
+                }
+              }}
               aria-label={selecting ? `Select ${f.fileName}` : `Open ${f.fileName}`}
+              aria-haspopup={selecting ? undefined : "dialog"}
               aria-pressed={selecting ? isSelected : undefined}
             >
               {(f.thumbUrl ?? f.posterUrl) ? (
@@ -314,86 +323,28 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
                 {f.reviewedBy ? ` · ${f.reviewedBy}` : ""}
               </span>
             </button>
-            {/* Phones: one tap opens a sheet with every action, labeled. */}
-            <div className="flex items-center justify-between px-1.5 py-1 sm:hidden">
-              <button className={`${btn} relative size-10`} aria-label="Comments" onClick={() => setSheetId(f.id)}>
-                <MessageCircle className="size-[18px]" />
-                {f.comments.length > 0 && (
-                  <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-brand px-1 text-[10px] font-bold leading-4 text-white">{f.comments.length}</span>
-                )}
-              </button>
-              <button className={`${btn} size-10`} aria-label="More actions" onClick={() => setSheetId(f.id)}>
-                <MoreHorizontal className="size-5" />
-              </button>
-            </div>
-            <div className="hidden items-center justify-between gap-1 px-2 py-1.5 sm:flex">
-              <div className="flex">
-                <button className={btn} title="Move earlier" disabled={i === 0} onClick={() => start(() => moveFile(roomId, f.id, -1))}>
-                  <ArrowUp className="size-4" />
-                </button>
-                <button className={btn} title="Move later" disabled={i === order.length - 1} onClick={() => start(() => moveFile(roomId, f.id, 1))}>
-                  <ArrowDown className="size-4" />
-                </button>
-                <button className={btn} title="Use as hero" disabled={heroId === f.id} onClick={() => start(() => setHero(roomId, f.id))}>
-                  <Star className="size-4" />
-                </button>
-                <NewVersionButton roomId={roomId} file={f} className={btn}>
-                  <Layers className="size-4" />
-                </NewVersionButton>
-              </div>
-              <div className="flex">
-                <button className={`${btn} relative`} title="Details and comments" onClick={() => setOpenId(open ? null : f.id)}>
-                  <MessageCircle className="size-4" />
-                  {f.comments.length > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-brand px-1 text-[10px] font-bold leading-4 text-white">{f.comments.length}</span>
-                  )}
-                </button>
-                {f.status !== "pending" && (
-                  <button className={btn} title="Reset to pending" onClick={() => start(() => resetReview(roomId, f.id))}>
-                    <RotateCcw className="size-4" />
-                  </button>
-                )}
+            <div className="flex min-w-0 items-center gap-1 px-2">
+              <span className="flex-1 truncate pl-1 text-xs font-medium text-slate-700" title={f.fileName}>{f.fileName}</span>
+              {!selecting && (
                 <button
-                  className={`${btn} hover:text-red-600`}
-                  title="Delete file"
-                  onClick={() => remove(f)}
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            </div>
-            {open && (
-              <div className="hidden space-y-2 border-t sm:block border-slate-100 p-3">
-                <DetailsForm roomId={roomId} file={f} sets={sets} />
-                {f.versions.some((v) => v.comments.length) && (
-                  <p className="text-[11px] text-slate-400">
-                    Earlier versions have {f.versions.reduce((n, v) => n + v.comments.length, 0)} more notes (open the file to compare).
-                  </p>
-                )}
-                {f.comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
-                {f.comments.map((c) => (
-                  <Note key={c.id} c={c} />
-                ))}
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const body = reply.trim();
-                    if (!body) return;
-                    setReply("");
-                    start(() => replyToComment(roomId, f.id, body));
+                  type="button"
+                  className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
+                  aria-label={`Actions for ${f.fileName}${f.comments.length ? `, ${f.comments.length} ${f.comments.length === 1 ? "comment" : "comments"}` : ""}`}
+                  aria-haspopup="dialog"
+                  onClick={(event) => {
+                    actionsOpener.current = event.currentTarget;
+                    setSheetId(f.id);
                   }}
-                  className="flex gap-2"
                 >
-                  <input
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    placeholder="Reply"
-                    className="min-w-0 flex-1 rounded-full border border-slate-200 px-3 py-1.5 text-base outline-none focus:border-brand sm:text-xs"
-                  />
-                  <button className="rounded-full bg-ink px-3 text-xs font-bold text-white">Send</button>
-                </form>
-              </div>
-            )}
+                  {f.comments.length > 0 ? (
+                    <>
+                      <MessageCircle className="size-4" />
+                      <span aria-hidden="true" className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-ink px-1 text-[10px] font-bold leading-4 text-white">{f.comments.length}</span>
+                    </>
+                  ) : <MoreHorizontal className="size-5" />}
+                </button>
+              )}
+            </div>
           </li>
         );
       })}
@@ -439,29 +390,17 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
       )}
     </AnimatePresence>
 
-    <Lightbox files={order} index={viewIndex} slug={slug} onIndex={setViewIndex} alwaysDownload />
+    <Lightbox files={order} index={viewIndex} slug={slug} onIndex={setViewIndex} alwaysDownload dialogOpener={previewOpener} />
 
-    <AnimatePresence>
-      {sheetFile && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm sm:hidden"
-          style={sheetViewport}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setSheetId(null)}
-        >
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label={sheetFile.fileName}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 380, damping: 36 }}
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-[88%] w-full overflow-y-auto rounded-t-[28px] bg-white pb-[calc(1rem+env(safe-area-inset-bottom))]"
-          >
+    {sheetFile && (
+      <ModalDialog
+        label={`File actions for ${sheetFile.fileName}`}
+        className="open:flex items-end justify-center backdrop:bg-black/50 backdrop:backdrop-blur-sm sm:items-center sm:p-4"
+        style={sheetViewport}
+        onDismiss={() => setSheetId(null)}
+        returnFocusRef={actionsOpener}
+      >
+          <div className="max-h-[88%] w-full overflow-y-auto overscroll-contain rounded-t-[28px] bg-white pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl sm:max-w-xl sm:rounded-3xl">
             <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-3">
               <div className="size-12 shrink-0 overflow-hidden rounded-xl bg-ink">
                 {(sheetFile.thumbUrl ?? sheetFile.posterUrl) && (
@@ -478,7 +417,7 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
                   {sheetFile.reviewedBy ? ` · ${sheetFile.reviewedBy}` : ""}
                 </span>
               </div>
-              <button className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-600" aria-label="Close" onClick={() => setSheetId(null)}>
+              <button type="button" data-dialog-initial-focus className="flex size-11 items-center justify-center rounded-full bg-slate-100 text-slate-600" aria-label="Close" onClick={() => setSheetId(null)}>
                 <X className="size-5" />
               </button>
             </div>
@@ -516,6 +455,11 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
 
             <div className="px-4">
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Comments ({sheetFile.comments.length})</p>
+              {sheetFile.versions.some((version) => version.comments.length > 0) && (
+                <p className="mb-2 text-xs text-slate-600">
+                  Earlier versions have {sheetFile.versions.reduce((count, version) => count + version.comments.length, 0)} more notes. Open the file to compare.
+                </p>
+              )}
               <div className="space-y-2">
                 {sheetFile.comments.length === 0 && <p className="text-sm text-slate-400">No comments yet.</p>}
                 {sheetFile.comments.map((c) => (
@@ -527,14 +471,18 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
                   e.preventDefault();
                   const body = reply.trim();
                   if (!body) return;
-                  setReply("");
+                  setReplies((previous) => ({ ...previous, [sheetFile.id]: "" }));
                   start(() => replyToComment(roomId, sheetFile.id, body));
                 }}
                 className="mt-3 flex gap-2"
               >
                 <input
                   value={reply}
-                  onChange={(e) => setReply(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setReplies((previous) => ({ ...previous, [sheetFile.id]: value }));
+                  }}
+                  maxLength={2000}
                   placeholder="Reply to the client"
                   className="min-w-0 flex-1 rounded-full border border-slate-200 px-4 py-2.5 text-base outline-none focus:border-brand"
                 />
@@ -558,10 +506,9 @@ export function AdminFileGrid({ roomId, slug, files, heroId }: { roomId: string;
                 <Trash2 className="size-4" /> Delete
               </button>
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </div>
+      </ModalDialog>
+    )}
     </>
   );
 }

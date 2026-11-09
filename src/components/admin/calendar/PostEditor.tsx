@@ -1,39 +1,40 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, type RefObject } from "react";
 import { X } from "lucide-react";
 import { deletePost, savePost } from "@/app/admin/calendar/actions";
+import { ModalDialog } from "@/components/ModalDialog";
 import { type CalClient, type CalPost, PLATFORMS } from "@/lib/calendar";
 import { STUDIO_TZ_LABEL, dayKey, timeInput } from "@/lib/calendar-time";
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-ink focus:ring-4 focus:ring-ink/10 sm:text-sm";
 
-export function PostEditor({ post, defaultDate, clients, onClose }: { post: CalPost | null; defaultDate: string; clients: CalClient[]; onClose: () => void }) {
+export function PostEditor({ post, defaultDate, clients, onClose, returnFocusRef }: {
+  post: CalPost | null;
+  defaultDate: string;
+  clients: CalClient[];
+  onClose: () => void;
+  returnFocusRef?: RefObject<HTMLElement | null>;
+}) {
   const [state, action, pending] = useActionState(savePost, undefined);
 
   useEffect(() => {
     if (state?.ok) onClose();
   }, [state, onClose]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={post ? "Edit note" : "Add a plan"}
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-3xl"
-      >
+    <ModalDialog
+      label={post ? "Edit plan" : "Add a plan"}
+      className="open:flex items-end justify-center backdrop:bg-ink/50 backdrop:backdrop-blur-sm sm:items-center sm:p-6"
+      onDismiss={onClose}
+      dismissible={!pending}
+      returnFocusRef={returnFocusRef}
+    >
+      <div className="max-h-[92dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-3xl">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-3xl uppercase leading-none text-ink">{post ? "Edit plan" : "Add a plan"}</h2>
-          <button onClick={onClose} aria-label="Close" className="inline-flex size-10 items-center justify-center rounded-full hover:bg-slate-100">
+          <button type="button" data-dialog-initial-focus onClick={onClose} disabled={pending} aria-label="Close" className="inline-flex size-11 items-center justify-center rounded-full hover:bg-slate-100">
             <X className="size-5" />
           </button>
         </div>
@@ -112,6 +113,6 @@ export function PostEditor({ post, defaultDate, clients, onClose }: { post: CalP
           </div>
         </form>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

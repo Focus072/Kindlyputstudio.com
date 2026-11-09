@@ -18,7 +18,13 @@ export function isRoomExpired(room: Pick<RoomRow, "expires_at">): boolean {
 }
 
 export function isRoomOpen(room: RoomRow): boolean {
-  return room.status === "live" && !isRoomExpired(room);
+  return roomAvailability(room) === "live";
+}
+
+/** The effective client-link state. A live room may already have expired. */
+export function roomAvailability(room: Pick<RoomRow, "status" | "expires_at">) {
+  if (room.status !== "live") return room.status;
+  return isRoomExpired(room) ? "expired" : "live";
 }
 
 // Wrapped in cache() so the page and its share-preview metadata share one query per request.

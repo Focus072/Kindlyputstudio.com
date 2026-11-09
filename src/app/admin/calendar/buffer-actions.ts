@@ -12,7 +12,9 @@ import {
   editBufferPost,
   getBufferKey,
 } from "@/lib/buffer";
-import { CAPTION_LIMIT, platformInfo } from "@/lib/calendar";
+import { CAPTION_LIMIT, channelLabel, platformInfo } from "@/lib/calendar";
+import type { ChannelRow } from "@/lib/calendar-data";
+import { type ComposerMedia, type NetworkOptions, MAX_PUBLISH_DESTINATIONS, metadataFor, postContentIssue, scheduledTime } from "@/lib/calendar-publishing";
 import { assignClients, syncBuffer } from "@/lib/calendar-sync";
 import { studioToUtc, timeInput } from "@/lib/calendar-time";
 import { PREVIEWS_BUCKET, previewUrl } from "@/lib/storage";
@@ -55,18 +57,6 @@ export async function createSocialUpload(name: string, contentType: string): Pro
 
 // Shapes the composer sends ------------------------------------------------------
 
-export type ComposerMedia = { url: string; isVideo: boolean; alt?: string; coverMs?: number | null };
-
-export type NetworkOptions = {
-  instagram?: { type: "post" | "reel" | "story"; shareToFeed: boolean; firstComment?: string; link?: string; ai?: boolean };
-  facebook?: { type: "post" | "reel" | "story"; firstComment?: string };
-  linkedin?: { firstComment?: string };
-  google?: { type: "whats_new" | "offer" | "event"; button: string; link?: string; title?: string; start?: string; end?: string; code?: string; terms?: string };
-  youtube?: { title: string; privacy: "public" | "unlisted" | "private"; categoryId: string; madeForKids: boolean; notify: boolean };
-  tiktok?: { title?: string; ai?: boolean };
-  pinterest?: { title?: string; link?: string };
-};
-
 export type ComposerPayload = {
   channelIds: string[];
   text: string;
@@ -108,101 +98,6 @@ function assetsFor(media: ComposerMedia[], service: string): BufferAssetInput[] 
   });
 }
 
-function dateIso(v: string | undefined) {
-  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? studioToUtc(v, "00:00").toISOString() : null;
-}
-
-/** Buffer's per-network options for one channel, or the reason it can't go. */
-function metadataFor(service: string, o: NetworkOptions, media: ComposerMedia[], boardId?: string): { metadata?: Record<string, unknown>; error?: string } {
-  const hasMedia = media.length > 0;
-  const hasVideo = media.some((m) => m.isVideo);
-  switch (service) {
-    case "instagram": {
-      if (!hasMedia) return { error: "Instagram needs a photo or video." };
-      const type = o.instagram?.type ?? (hasVideo ? "reel" : "post");
-      if (type === "reel" && !hasVideo) return { error: "An Instagram reel needs a video." };
-      const ig: Record<string, unknown> = { type, shouldShareToFeed: type === "story" ? false : (o.instagram?.shareToFeed ?? true) };
-      if (type !== "story" && str(o.instagram?.firstComment, 2200)) ig.firstComment = str(o.instagram?.firstComment, 2200);
-      if (type === "post" && /^https?:\/\//.test(str(o.instagram?.link))) ig.link = str(o.instagram?.link);
-      if (o.instagram?.ai) ig.isAiGenerated = true;
-      return { metadata: { instagram: ig } };
-    }
-    case "facebook": {
-      const type = o.facebook?.type ?? "post";
-      if (type !== "post" && !hasMedia) return { error: "Facebook reels and stories need a photo or video." };
-      if (type === "reel" && !hasVideo) return { error: "A Facebook reel needs a video." };
-      const fb: Record<string, unknown> = { type };
-      if (str(o.facebook?.firstComment, 8000)) fb.firstComment = str(o.facebook?.firstComment, 8000);
-      return { metadata: { facebook: fb } };
-    }
-    case "linkedin":
-      return str(o.linkedin?.firstComment) ? { metadata: { linkedin: { firstComment: str(o.linkedin?.firstComment, 1250) } } } : {};
-    case "googlebusiness": {
-      const g = o.google ?? { type: "whats_new", button: "none" };
-      const link = str(g.link);
-      const button = ["book", "call", "learn_more", "none", "order", "shop", "signup"].includes(g.button) ? g.button : "none";
-      if (g.type === "offer") {
-        const title = str(g.title, 58);
-        const start = dateIso(g.start);
-        const end = dateIso(g.end);
-        if (!title || !start || !end) return { error: "Google offers need a title, a start date and an end date." };
-        const d: Record<string, unknown> = { title, startDate: start, endDate: end };
-        if (str(g.code)) d.code = str(g.code, 58);
-        if (str(g.terms)) d.terms = str(g.terms, 5000);
-        if (link) d.link = link;
-        return { metadata: { google: { type: "offer", title, detailsOffer: d } } };
-      }
-      if (g.type === "event") {
-        const title = str(g.title, 58);
-        const start = dateIso(g.start);
-        const end = dateIso(g.end);
-        if (!title || !start || !end) return { error: "Google events need a title, a start date and an end date." };
-        if (button !== "none" && button !== "call" && !link) return { error: "Google Business buttons need a link." };
-        const d: Record<string, unknown> = { title, startDate: start, endDate: end, isFullDayEvent: true, button };
-        if (link) d.link = link;
-        return { metadata: { google: { type: "event", title, detailsEvent: d } } };
-      }
-      if (button !== "none" && button !== "call" && !link) return { error: "Google Business buttons need a link." };
-      const google: Record<string, unknown> = { type: "whats_new" };
-      if (button !== "none") google.detailsWhatsNew = { button, ...(link ? { link } : {}) };
-      return { metadata: { google } };
-    }
-    case "tiktok": {
-      if (!hasMedia) return { error: "TikTok needs a photo or video." };
-      const tt: Record<string, unknown> = {};
-      if (!hasVideo && str(o.tiktok?.title)) tt.title = str(o.tiktok?.title, 90);
-      if (hasVideo && o.tiktok?.ai) tt.isAiGenerated = true;
-      return Object.keys(tt).length ? { metadata: { tiktok: tt } } : {};
-    }
-    case "youtube": {
-      if (!hasVideo) return { error: "YouTube needs a video." };
-      const y = o.youtube;
-      if (!str(y?.title)) return { error: "YouTube needs a title." };
-      return {
-        metadata: {
-          youtube: {
-            title: str(y?.title, 100),
-            categoryId: /^\d{1,2}$/.test(y?.categoryId ?? "") ? y!.categoryId : "22",
-            privacy: ["public", "unlisted", "private"].includes(y?.privacy ?? "") ? y!.privacy : "public",
-            madeForKids: !!y?.madeForKids,
-            notifySubscribers: y?.notify ?? true,
-          },
-        },
-      };
-    }
-    case "pinterest": {
-      if (!hasMedia) return { error: "Pinterest needs a photo or video." };
-      if (!boardId) return { error: "Pick a Pinterest board." };
-      const pin: Record<string, unknown> = { boardServiceId: boardId };
-      if (str(o.pinterest?.title)) pin.title = str(o.pinterest?.title, 100);
-      if (/^https?:\/\//.test(str(o.pinterest?.link))) pin.url = str(o.pinterest?.link);
-      return { metadata: { pinterest: pin } };
-    }
-    default:
-      return {};
-  }
-}
-
 function scheduleFields(p: Pick<ComposerPayload, "when" | "date" | "time">): { fields?: Pick<CreatePostInput, "mode" | "dueAt" | "saveToDraft">; error?: string } {
   if (p.when === "now") return { fields: { mode: "shareNow" } };
   if (p.when === "queue") return { fields: { mode: "addToQueue" } };
@@ -214,10 +109,9 @@ function scheduleFields(p: Pick<ComposerPayload, "when" | "date" | "time">): { f
     }
     return { fields: { mode: "addToQueue", saveToDraft: true } };
   }
-  if (!p.date || !/^\d{4}-\d{2}-\d{2}$/.test(p.date) || !p.time || !/^\d{2}:\d{2}$/.test(p.time)) return { error: "Pick a date and time." };
-  const at = studioToUtc(p.date, p.time);
-  if (at.getTime() < Date.now() + 60_000) return { error: "That time has already passed. Pick a later time or post now." };
-  return { fields: { mode: "customScheduled", dueAt: at.toISOString() } };
+  const scheduled = scheduledTime(p.date, p.time);
+  if ("error" in scheduled) return scheduled;
+  return { fields: { mode: "customScheduled", dueAt: scheduled.at.toISOString() } };
 }
 
 function cleanTags(v: unknown) {
@@ -229,37 +123,47 @@ function cleanTags(v: unknown) {
 /** Sends one post to each chosen Buffer channel. */
 export async function publishPosts(p: ComposerPayload): Promise<{ error?: string; results?: ChannelResult[] }> {
   await requireAdmin();
+  const ids = [...new Set((p.channelIds ?? []).filter((x) => typeof x === "string"))];
+  if (!ids.length) return { error: "Pick at least one account to post to." };
+  if (ids.length > MAX_PUBLISH_DESTINATIONS) return { error: `Select up to ${MAX_PUBLISH_DESTINATIONS} accounts per post.` };
   let key: string;
   try {
     key = await bufferKey();
   } catch (e) {
     return { error: message(e) };
   }
-  const ids = [...new Set((p.channelIds ?? []).filter((x) => typeof x === "string"))].slice(0, 40);
-  if (!ids.length) return { error: "Pick at least one account to post to." };
   const text = String(p.text ?? "").slice(0, 63206);
   const captions = Object.fromEntries(Object.entries(p.captions ?? {}).filter(([, v]) => typeof v === "string").map(([k, v]) => [k, v.slice(0, 63206)]));
   const media = cleanMedia(p.media);
-  if (!text.trim() && !Object.values(captions).some((c) => c.trim()) && !media.length) return { error: "Write a caption or add a photo or video." };
-  if (media.some((m) => m.isVideo) && media.length > 1) return { error: "Use one video, or up to 10 photos." };
   const when = scheduleFields(p);
   if (when.error) return { error: when.error };
   const tagIds = cleanTags(p.tagIds);
   const options = p.options ?? {};
 
-  const { data: rows } = await supabaseAdmin().from("buffer_channels").select("id, name, service").in("id", ids);
-  const channels = (rows ?? []) as { id: string; name: string; service: string }[];
-  if (!channels.length) return { error: "Those accounts weren't found. Press Refresh on the calendar." };
+  const { data: rows, error } = await supabaseAdmin().from("buffer_channels").select("*").in("id", ids);
+  if (error) return { error: "Couldn't check the selected accounts. Try syncing the calendar." };
+  const channels = (rows ?? []) as ChannelRow[];
+  if (channels.length !== ids.length || channels.some((ch) => ch.removed_at)) return { error: "One or more accounts are no longer available. Sync the calendar and pick accounts again." };
+
+  const destinations = [];
+  for (const ch of channels) {
+    const label = channelLabel(ch, channels);
+    if (ch.is_disconnected) return { error: `${label} needs to be reconnected in Buffer.` };
+    const service = platformInfo(ch.service).id;
+    const body = captions[service] ?? text;
+    const board = p.boards?.[ch.id];
+    if (service === "pinterest" && ch.boards?.length && !ch.boards.some((b) => b.id === board)) {
+      return { error: `${label}: Choose a board from this account.` };
+    }
+    const issue = postContentIssue(service, body, media, options);
+    if (issue) return { error: `${label}: ${issue.message}` };
+    const meta = metadataFor(service, options, media, board);
+    if (meta.error) return { error: `${label}: ${meta.error}` };
+    destinations.push({ ch, service, body, meta, label });
+  }
 
   const results = await Promise.all(
-    channels.map(async (ch): Promise<ChannelResult> => {
-      const service = platformInfo(ch.service).id;
-      const body = captions[service] ?? text;
-      const limit = CAPTION_LIMIT[service];
-      if (limit && body.length > limit) return { channelId: ch.id, name: ch.name, ok: false, error: `Caption is over ${platformInfo(service).label}'s ${limit} characters.` };
-      if (!body.trim() && !media.length) return { channelId: ch.id, name: ch.name, ok: false, error: "This one has no caption or media." };
-      const meta = metadataFor(service, options, media, p.boards?.[ch.id]);
-      if (meta.error) return { channelId: ch.id, name: ch.name, ok: false, error: meta.error };
+    destinations.map(async ({ ch, service, body, meta, label }): Promise<ChannelResult> => {
       try {
         await createBufferPost(key, {
           channelId: ch.id,
@@ -270,9 +174,9 @@ export async function publishPosts(p: ComposerPayload): Promise<{ error?: string
           ...(meta.metadata ? { metadata: meta.metadata } : {}),
           ...(tagIds.length ? { tagIds } : {}),
         });
-        return { channelId: ch.id, name: ch.name, ok: true };
+        return { channelId: ch.id, name: label, ok: true };
       } catch (e) {
-        return { channelId: ch.id, name: ch.name, ok: false, error: message(e) };
+        return { channelId: ch.id, name: label, ok: false, error: message(e) };
       }
     }),
   );
@@ -306,10 +210,17 @@ export async function updateBufferPost(p: EditPayload): Promise<{ error?: string
     if (when.error) return { error: when.error };
     let service = "";
     if (typeof p.channelId === "string" && p.channelId) {
-      const { data } = await supabaseAdmin().from("buffer_channels").select("service").eq("id", p.channelId).maybeSingle();
-      service = platformInfo((data?.service as string) ?? "").id;
+      const { data } = await supabaseAdmin().from("buffer_channels").select("*").eq("id", p.channelId).maybeSingle();
+      const channel = data as ChannelRow | null;
+      if (p.when !== "draft" && channel?.removed_at) return { error: "This account is no longer available in Buffer." };
+      if (p.when !== "draft" && channel?.is_disconnected) return { error: "Reconnect this account in Buffer before publishing." };
+      service = platformInfo(channel?.service ?? "").id;
     }
     const media = p.media ? cleanMedia(p.media) : null;
+    if (media) {
+      const issue = postContentIssue(service, p.text, media, p.options, false);
+      if (issue) return { error: issue.message };
+    }
     let metadata: Record<string, unknown> | undefined;
     if (p.options && service) {
       // Media isn't re-sent when untouched, so check options against "has media" loosely.

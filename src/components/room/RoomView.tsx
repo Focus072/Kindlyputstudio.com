@@ -39,6 +39,8 @@ export type RoomViewProps = {
   brand: { name: string; mark: string; poweredByLabel: string };
   /** Admin preview: shows the room exactly as the client sees it, without tracking. */
   preview?: boolean;
+  /** Explicit studio preview suppresses client actions. */
+  readOnly?: boolean;
   /** Set when a studio admin is looking: shows a way back to the admin. */
   adminRoomId?: string | null;
   /** Signed-in client, or null when nobody is signed in. */
@@ -72,7 +74,7 @@ function titleSize(headline: string) {
   return "text-[clamp(2.4rem,10vw,5rem)] lg:text-[clamp(2.75rem,4.4vw,5rem)]";
 }
 
-export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, gate }: RoomViewProps) {
+export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, readOnly, adminRoomId, viewer, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
   const [sheetTimecode, setSheetTimecode] = useState<number | null>(null);
@@ -291,7 +293,9 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               <p className="mt-5 max-w-xl whitespace-pre-wrap text-[15px] leading-relaxed text-room-muted">{room.intro}</p>
             )}
 
-            {files.length > 0 && paymentDue ? (
+            {readOnly ? (
+              <p className="mt-5 inline-flex rounded-full border border-room-border px-3 py-1.5 text-sm font-semibold">Read-only studio preview</p>
+            ) : files.length > 0 && paymentDue ? (
               <div className="mt-7 sm:mt-8">
                 {room.paymentUrl ? (
                   <a
@@ -432,8 +436,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                   natural={natural}
                   watermark={watermark}
                   onOpen={() => openFile(file)}
-                  onReview={(status) => review(file, status)}
-                  onComment={() => openComments(file)}
+                  onReview={readOnly ? undefined : (status) => review(file, status)}
+                  onComment={readOnly ? undefined : () => openComments(file)}
                 />
               ))}
             </ul>
@@ -453,11 +457,12 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
           setStartAt(null);
           setLightboxIndex(i);
         }}
-        onReview={review}
-        onComment={openComments}
+        onReview={readOnly ? undefined : review}
+        onComment={readOnly ? undefined : openComments}
         startAt={startAt}
         watermark={watermark}
         alwaysDownload={!!adminRoomId}
+        hideDownload={readOnly}
       />
 
       <CommentSheet
