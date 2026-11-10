@@ -63,6 +63,15 @@ export function AuthModal({
   const [resent, setResent] = useState<"idle" | "sending" | "sent">("idle");
 
   const supabase = () => supabaseBrowser(supabaseUrl, supabaseKey);
+  // Google's account picker names the host that finishes sign-in, which is the
+  // Supabase project, not our domain. Say so up front so it doesn't look odd.
+  const authHost = (() => {
+    try {
+      return new URL(supabaseUrl).host;
+    } catch {
+      return "our sign-in service";
+    }
+  })();
   const callback = (flow?: "email" | "recovery", to = next) =>
     `${window.location.origin}/auth/callback?next=${encodeURIComponent(to)}${flow ? `&flow=${flow}` : ""}`;
 
@@ -235,6 +244,9 @@ export function AuthModal({
               {busy === "google" ? <Loader2 className="size-5 animate-spin" /> : <GoogleIcon />}
               Continue with Google
             </button>
+            <p className="mt-2.5 text-center text-[11px] leading-snug text-white/45">
+              Google may say you are signing in to {authHost}. That is our secure sign-in service, run for Kindly Put.
+            </p>
 
             <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-[0.25em] text-white/40">
               <span className="h-px flex-1 bg-white/10" />
@@ -314,6 +326,11 @@ export function AuthModal({
               >
                 {mode === "signin" ? "Create an account" : "Sign in"}
               </button>
+            </p>
+            <p className="mt-4 text-center text-[11px] text-white/40">
+              <a href="/privacy" target="_blank" className="underline-offset-4 hover:underline">Privacy</a>
+              <span className="mx-2">·</span>
+              <a href="/terms" target="_blank" className="underline-offset-4 hover:underline">Terms</a>
             </p>
           </>
         )}
