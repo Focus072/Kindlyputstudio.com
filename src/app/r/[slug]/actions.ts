@@ -91,6 +91,52 @@ export async function setReview(input: { slug: string; fileId: string; status: R
   return { ok: true };
 }
 
+/**
+ * "Approve the rest": approves every file in the list that nobody has reviewed yet.
+ * Files already approved or marked for changes are left alone.
+ */
+export async function approveRemaining(input: { slug: string; fileIds: string[] }): Promise<Result<{ approved: string[] }>> {
+  const ids = Array.isArray(input.fileIds) ? [...new Set(input.fileIds.map(String))].slice(0, 500) : [];
+  if (ids.length === 0) return { ok: true, data: { approved: [] } };
+  const who = await actor();
+  if (!who) return { ok: false, error: SIGN_IN };
+  const room = await openRoom(input.slug, who.client);
+  if (!room) return { ok: false, error: "This room is no longer available." };
+
+  const db = supabaseAdmin();
+  const { data, error } = await db
+    .from("files")
+    .update({
+      review_status: "approved",
+      reviewed_by: who.name,
+      reviewed_by_client: who.client?.id ?? null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("room_id", room.id)
+    .eq("review_status", "pending")
+    .is("replaced_by", null)
+    .in("id", ids)
+    .select("id");
+  if (error) return { ok: false, error: "Could not save. Please try again." };
+  const approved = (data ?? []).map((f) => f.id as string);
+
+  if (who.client && approved.length > 0) {
+    // One line in the studio's activity feed instead of one per file.
+    const row = {
+      room_id: room.id,
+      file_id: approved.length === 1 ? approved[0] : null,
+      type: "approve",
+      actor_name: who.name,
+      client_id: who.client.id,
+      viewer_id: who.client.id,
+    };
+    const { error: logError } = await db.from("activity").insert({ ...row, meta: { count: approved.length } });
+    // Databases without the activity.meta column (migration 0007) still get the line.
+    if (logError) await db.from("activity").insert(row);
+  }
+  return { ok: true, data: { approved } };
+}
+
 export async function addComment(input: {
   slug: string;
   fileId: string;

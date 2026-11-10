@@ -3,11 +3,19 @@ import { ArrowUpRight } from "lucide-react";
 import { CopyLink } from "@/components/admin/CopyLink";
 import { getTheme } from "@/config/themes";
 import type { RoomSummary } from "@/lib/data";
+import { formatReviewBy, studioToday } from "@/lib/review-date";
+
+/** "Nov 14" chip while files still wait on the client and the room has a review-by date. */
+function dueChip(day: string | null | undefined, pending: number) {
+  const label = pending > 0 ? formatReviewBy(day, { month: "short", day: "numeric" }) : null;
+  return label ? { label, late: day! < studioToday() } : null;
+}
 
 export function RoomCard({ room }: { room: RoomSummary }) {
   const theme = getTheme(room.theme_preset);
   const total = Math.max(room.fileCount, 1);
   const pct = (n: number) => `${(n / total) * 100}%`;
+  const due = dueChip(room.review_by, room.stats.pending);
 
   return (
     <li className="overflow-hidden rounded-[26px] bg-white shadow-sm ring-1 ring-slate-200">
@@ -26,6 +34,14 @@ export function RoomCard({ room }: { room: RoomSummary }) {
             <p className="font-typewriter text-[11px] opacity-80">Prepared for {room.client_name}</p>
             <p className="mt-1 line-clamp-2 font-display text-[1.75rem] uppercase leading-[0.95]">{room.title}</p>
           </div>
+          {due && (
+            <span
+              className={`absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold ${due.late ? "text-decline" : "text-slate-700"}`}
+            >
+              {due.late ? "Overdue · " : "Due "}
+              {due.label}
+            </span>
+          )}
           {room.status !== "live" && (
             <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-700">
               {room.status}
