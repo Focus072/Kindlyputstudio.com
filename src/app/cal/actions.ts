@@ -120,13 +120,14 @@ export async function moveIdea(ctx: Ctx, id: string, status: IdeaStatus): Promis
   return { ok: true };
 }
 
-/** Studio only: an idea went into the calendar through the composer. */
-export async function markIdeaScheduled(clientId: string, id: string, at: string | null): Promise<Result> {
+/** Studio only: an idea went into the calendar through the composer (posted right away = done). */
+export async function markIdeaScheduled(clientId: string, id: string, at: string | null, status: "scheduled" | "done" = "scheduled"): Promise<Result> {
   await requireAdmin();
   if (!UUID.test(id) || !UUID.test(clientId)) return { ok: false, error: "Idea not found." };
+  if (status !== "scheduled" && status !== "done") return { ok: false, error: "Unknown status." };
   const { error } = await supabaseAdmin()
     .from("calendar_ideas")
-    .update({ status: "scheduled", scheduled_at: at, updated_at: new Date().toISOString() })
+    .update({ status, scheduled_at: at && !Number.isNaN(Date.parse(at)) ? at : null, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("client_id", clientId);
   if (error) return { ok: false, error: "Scheduled, but couldn't update the idea." };

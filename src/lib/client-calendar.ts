@@ -104,10 +104,11 @@ export async function loadIdeas(clientId: string): Promise<{ ideas: Idea[]; post
   const db = supabaseAdmin();
   const [ideasRes, commentsRes] = await Promise.all([
     db.from("calendar_ideas").select("*").eq("client_id", clientId).order("created_at", { ascending: false }).limit(300),
-    db.from("calendar_comments").select("id, idea_id, post_key, body, author_name, author_role, created_at").eq("client_id", clientId).order("created_at").limit(1000),
+    db.from("calendar_comments").select("id, idea_id, post_key, body, author_name, author_role, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(2000),
   ]);
   if (ideasRes.error) return { ideas: [], postComments: [], ready: false };
-  const comments = ((commentsRes.data ?? []) as CommentRow[]).map(toComment);
+  // Newest first from the database (so recent comments always load), oldest first on screen.
+  const comments = ((commentsRes.data ?? []) as CommentRow[]).map(toComment).reverse();
   const byIdea = new Map<string, CalComment[]>();
   for (const c of comments) if (c.ideaId) byIdea.set(c.ideaId, [...(byIdea.get(c.ideaId) ?? []), c]);
   const ideas: Idea[] = (ideasRes.data ?? []).map((r) => ({

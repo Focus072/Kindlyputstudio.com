@@ -183,8 +183,11 @@ export function AdminClientPlan({
           tags={tags}
           today={today}
           onClose={() => setComposer(null)}
-          onPublished={({ date, time, draft }) => {
-            if (!draft) void markIdeaScheduled(client.id, composer.idea.id, studioToUtc(date, time).toISOString());
+          onPublished={({ date, time, when }) => {
+            // Drafts stay ideas. Queued posts get their slot from Buffer, so no date is recorded.
+            if (when === "draft") return;
+            const at = when === "schedule" ? studioToUtc(date, time).toISOString() : when === "now" ? new Date().toISOString() : null;
+            void markIdeaScheduled(client.id, composer.idea.id, at, when === "now" ? "done" : "scheduled");
           }}
         />
       )}

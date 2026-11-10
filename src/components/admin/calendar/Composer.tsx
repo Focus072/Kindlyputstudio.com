@@ -30,7 +30,7 @@ type Props = {
   today: string;
   onClose: () => void;
   /** Called once every chosen account accepted the new post (used to mark an idea as scheduled). */
-  onPublished?: (info: { date: string; time: string; draft: boolean }) => void;
+  onPublished?: (info: { date: string; time: string; when: "schedule" | "queue" | "now" | "draft" }) => void;
 };
 
 type Tile = {
@@ -402,7 +402,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose, onPubl
         } catch {
           /* ignore */
         }
-        onPublished?.({ date, time, draft: w === "draft" });
+        onPublished?.({ date, time, when: w });
         router.refresh();
         onClose();
         return;
