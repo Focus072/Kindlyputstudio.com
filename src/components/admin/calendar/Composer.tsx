@@ -22,7 +22,16 @@ export type ComposerMode =
   | { kind: "new"; date?: string; clientId?: string | null; text?: string; media?: (ComposerMedia & { thumb?: string | null })[] }
   | { kind: "edit"; post: CalPost };
 
-type Props = { mode: ComposerMode; clients: CalClient[]; channels: CalChannel[]; tags: CalTag[]; today: string; onClose: () => void };
+type Props = {
+  mode: ComposerMode;
+  clients: CalClient[];
+  channels: CalChannel[];
+  tags: CalTag[];
+  today: string;
+  onClose: () => void;
+  /** Called once every chosen account accepted the new post (used to mark an idea as scheduled). */
+  onPublished?: (info: { date: string; time: string; draft: boolean }) => void;
+};
 
 type Tile = {
   id: string;
@@ -116,7 +125,7 @@ function to12h(t: string) {
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
-export function Composer({ mode, clients, channels, tags, today, onClose }: Props) {
+export function Composer({ mode, clients, channels, tags, today, onClose, onPublished }: Props) {
   const router = useRouter();
   const editing = mode.kind === "edit" ? mode.post : null;
   const editChannel = editing ? (channels.find((c) => c.id === editing.channelId) ?? null) : null;
@@ -393,6 +402,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose }: Prop
         } catch {
           /* ignore */
         }
+        onPublished?.({ date, time, draft: w === "draft" });
         router.refresh();
         onClose();
         return;
