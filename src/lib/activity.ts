@@ -16,15 +16,17 @@ export type ActivityItem = {
 
 /** What clients did, newest first. Views are left out so the feed stays useful. */
 export async function listActivity(limit = 60, opts: { includeViews?: boolean } = {}): Promise<ActivityItem[]> {
-  let q = supabaseAdmin()
-    .from("activity")
-    .select("id, type, actor_name, created_at, room_id, meta, rooms(title), files(file_name)")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (!opts.includeViews) q = q.neq("type", "view").neq("type", "reset");
-  const { data } = await q;
+  const query = (columns: string) => {
+    let q = supabaseAdmin().from("activity").select(columns).order("created_at", { ascending: false }).limit(limit);
+    if (!opts.includeViews) q = q.neq("type", "view").neq("type", "reset");
+    return q;
+  };
+  const base = "id, type, actor_name, created_at, room_id, rooms(title), files(file_name)";
+  let { data, error } = await query(`${base}, meta`);
+  // Databases without the activity.meta column (migration 0007) still get their feed.
+  if (error) ({ data, error } = await query(base));
   const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
-  return (data ?? []).map((a) => ({
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((a) => ({
     id: a.id as string,
     type: a.type as ActivityItem["type"],
     actor: (a.actor_name as string | null) ?? null,

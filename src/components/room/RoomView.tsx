@@ -155,6 +155,9 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
   const inSet = activeSet && sets.includes(activeSet) ? files.filter((f) => f.category === activeSet) : files;
   const visible = statusFilter === "all" ? inSet : inSet.filter((f) => f.status === statusFilter);
   const pendingInSet = inSet.filter((f) => f.status === "pending");
+  // A review can drop the open file out of a status filter ("To review"): the next
+  // file slides into its place, and after the last one the viewer closes.
+  const openIndex = lightboxIndex !== null && lightboxIndex < visible.length ? lightboxIndex : null;
 
   const paymentDue = room.paymentStatus === "due";
   const downloadable = files.filter((f) => f.canDownload).length;
@@ -481,6 +484,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                     onClick={() => {
                       setActiveSet(name);
                       setConfirmRest(false);
+                      setLightboxIndex(null);
                     }}
                     className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
                       active
@@ -508,7 +512,10 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                       key={f.key}
                       type="button"
                       aria-pressed={active}
-                      onClick={() => setStatusFilter(active ? "all" : f.key)}
+                      onClick={() => {
+                        setLightboxIndex(null);
+                        setStatusFilter(active ? "all" : f.key);
+                      }}
                       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-typewriter text-xs transition-colors ${
                         active
                           ? "border border-room-fg/40 bg-white/15 text-room-fg"
@@ -570,7 +577,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
           ) : visible.length === 0 ? (
             <div className="py-16 text-center font-typewriter text-sm text-room-muted">
               <p>{statusFilter === "pending" ? "You have reviewed everything here." : "Nothing here."}</p>
-              <button type="button" onClick={() => setStatusFilter("all")} className="mt-3 text-room-fg underline underline-offset-4">
+              <button type="button" onClick={() => { setLightboxIndex(null); setStatusFilter("all"); }} className="mt-3 text-room-fg underline underline-offset-4">
                 Show all files
               </button>
             </div>
@@ -605,7 +612,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
       <Lightbox
         files={visible}
-        index={lightboxIndex}
+        index={openIndex}
         slug={room.slug}
         onIndex={(i) => {
           setStartAt(null);
@@ -634,7 +641,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
       />
 
       <AnimatePresence>
-        {showFeedbackBar && lightboxIndex === null && !sheetFile && (
+        {showFeedbackBar && openIndex === null && !sheetFile && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -696,7 +703,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             exit={{ opacity: 0, y: 20 }}
             // Sits above the "Send feedback" bar while it is showing, so neither hides the other.
             className={`fixed inset-x-0 z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-center text-sm font-semibold text-black shadow-xl ${
-              showFeedbackBar && lightboxIndex === null && !sheetFile
+              showFeedbackBar && openIndex === null && !sheetFile
                 ? "bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
                 : "bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
             }`}
