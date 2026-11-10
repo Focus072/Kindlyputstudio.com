@@ -3,6 +3,7 @@ import { downloadZip } from "client-zip";
 import { isAdmin } from "@/lib/auth";
 import { getClientUser } from "@/lib/client-auth";
 import { clientMayOpen } from "@/lib/access";
+import { shareGuestFor } from "@/lib/share-links";
 import { canDownload, currentFiles, getFiles, getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
@@ -21,8 +22,10 @@ export async function GET(
   if (!room || !isRoomOpen(room)) return new Response("Not found", { status: 404 });
   const client = await getClientUser();
   const admin = await isAdmin();
-  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
-  if (!admin && client && !(await clientMayOpen(room, client))) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
+  const member = admin || (client ? await clientMayOpen(room, client) : false);
+  // No account, or not on the guest list: a live share link still lets them download.
+  const guest = member ? null : await shareGuestFor(room);
+  if (!member && !guest) return Response.redirect(new URL(`/r/${slug}`, _req.url), 302);
 
   const files = currentFiles(await getFiles(room.id)).filter((f) => admin || canDownload(room, f));
   if (files.length === 0) return new Response("No files are open for download yet.", { status: 404 });
@@ -33,8 +36,10 @@ export async function GET(
     .createSignedUrls(files.map((f) => f.original_path), 60 * 30);
   if (error || !signed) return new Response("Could not prepare download", { status: 500 });
 
-  if (client) {
+  if (client && !guest) {
     await db.from("activity").insert({ room_id: room.id, type: "download", client_id: client.id, actor_name: client.name });
+  } else if (guest) {
+    await db.from("activity").insert({ room_id: room.id, type: "download", actor_name: `${guest.name} (guest link)`, viewer_id: `share:${guest.linkId}` });
   }
 
   const usedNames = new Set<string>();

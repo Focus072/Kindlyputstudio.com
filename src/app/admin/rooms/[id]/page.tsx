@@ -14,6 +14,8 @@ import { timeAgo } from "@/lib/format";
 import { ClientAvatar } from "@/components/admin/ClientAvatar";
 import { RoomAccess } from "@/components/admin/RoomAccess";
 import { listAccessRequests, listInvites } from "@/lib/access";
+import { ShareLinks } from "@/components/admin/ShareLinks";
+import { listShareLinks } from "@/lib/share-links";
 
 export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/[id]">) {
   await requireAdmin();
@@ -21,11 +23,12 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const room = await getRoomById(id);
   if (!room) notFound();
-  const [{ files, stats, hero }, roomClients, invites, requests] = await Promise.all([
+  const [{ files, stats, hero }, roomClients, invites, requests, shareLinks] = await Promise.all([
     loadRoomBundle(room),
     clientsForRoom(room.id),
     listInvites(room.id),
     listAccessRequests(room.id),
+    listShareLinks(room.id),
   ]);
 
   return (
@@ -76,6 +79,24 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
           mode={room.access_mode ?? "link"}
           invites={invites}
           requests={requests.map((r) => ({ id: r.id, email: r.email, name: r.name }))}
+        />
+      </section>
+
+      <section id="share-links">
+        <h2 className="mb-3 text-lg font-bold text-ink">Share without an account</h2>
+        <ShareLinks
+          roomId={room.id}
+          roomTitle={room.title}
+          links={shareLinks.map((l) => ({
+            id: l.id,
+            path: `/r/${room.slug}?key=${l.token}`,
+            label: l.label,
+            canReview: l.can_review,
+            expiresAt: l.expires_at,
+            openCount: l.open_count,
+            lastOpenedAt: l.last_opened_at,
+            createdAt: l.created_at,
+          }))}
         />
       </section>
 

@@ -13,6 +13,8 @@ type Props = {
   onOpen: () => void;
   onReview: (status: "approved" | "changes") => void;
   onComment: () => void;
+  /** View-only share link: hides approve, decline, and notes. */
+  readOnly?: boolean;
   /** Keep the file's own shape instead of cropping to 4:5. */
   natural?: boolean;
   /** Studio name tiled over the preview. */
@@ -25,7 +27,7 @@ function ratio(file: RoomFile) {
   return Math.min(21 / 9, Math.max(9 / 16, file.width / file.height));
 }
 
-export function FileTile({ file, index, onOpen, onReview, onComment, natural, watermark }: Props) {
+export function FileTile({ file, index, onOpen, onReview, onComment, natural, watermark, readOnly }: Props) {
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = file.kind === "video";
@@ -136,7 +138,7 @@ export function FileTile({ file, index, onOpen, onReview, onComment, natural, wa
         {!(isVideo && playing) && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
         )}
-        {!(isVideo && playing) && (
+        {!(isVideo && playing) && !readOnly && (
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-center p-3">
             <ReviewButtons
               status={file.status}

@@ -8,6 +8,7 @@ import { isEmail, normalizeEmail } from "@/lib/access";
 import { requireAdmin } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { randomFileKey, roomSlug } from "@/lib/slug";
+import { newShareToken } from "@/lib/share-links";
 import { supabasePublicConfig } from "@/lib/env";
 import { ORIGINALS_BUCKET, PREVIEWS_BUCKET } from "@/lib/storage";
 
@@ -491,4 +492,46 @@ export async function resolveAccessRequest(roomId: string, requestId: string, ap
   }
   revalidatePath(`/admin/rooms/${roomId}`);
   revalidatePath("/admin");
+}
+
+/* Share links: open the room without an account ----------------------------- */
+
+const SHARE_EXPIRY_DAYS = [0, 1, 7, 30, 90] as const;
+
+/** Makes a new no-account link for the room. Returns the path to hand out. */
+export async function createShareLink(
+  roomId: string,
+  input: { label?: string; canReview?: boolean; expiresInDays?: number },
+): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  const { data: room } = await supabaseAdmin().from("rooms").select("id, slug").eq("id", roomId).maybeSingle();
+  if (!room) return { ok: false, error: "Room not found." };
+  const days = SHARE_EXPIRY_DAYS.includes(Number(input.expiresInDays) as (typeof SHARE_EXPIRY_DAYS)[number])
+    ? Number(input.expiresInDays)
+    : 0;
+  const label = String(input.label ?? "").trim().slice(0, 80) || null;
+  const token = newShareToken();
+  const { error } = await supabaseAdmin()
+    .from("room_share_links")
+    .insert({
+      room_id: roomId,
+      token,
+      label,
+      can_review: input.canReview !== false,
+      expires_at: days ? new Date(Date.now() + days * 86400_000).toISOString() : null,
+    });
+  if (error) return { ok: false, error: "Could not make the link. Please try again." };
+  revalidatePath(`/admin/rooms/${roomId}`);
+  return { ok: true, path: `/r/${room.slug}?key=${token}` };
+}
+
+/** Turns a share link off for good. Anyone holding it lands on the sign-up screen. */
+export async function revokeShareLink(roomId: string, linkId: string) {
+  await requireAdmin();
+  await supabaseAdmin()
+    .from("room_share_links")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", linkId)
+    .eq("room_id", roomId);
+  revalidatePath(`/admin/rooms/${roomId}`);
 }
