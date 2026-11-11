@@ -39,15 +39,21 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Delivered by</span>
           <input name="delivered_by" maxLength={60} defaultValue={room?.delivered_by ?? defaults?.deliveredBy ?? brand.deliveredBy} className={field} />
         </label>
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-semibold text-slate-700">Link expires (optional)</span>
-          <input
-            name="expires_at"
-            type="date"
-            defaultValue={room?.expires_at ? room.expires_at.slice(0, 10) : ""}
-            className={field}
-          />
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Review by (optional)</span>
+            <input name="review_by" type="date" defaultValue={room?.review_by ?? ""} className={field} />
+          </label>
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Link expires (optional)</span>
+            <input
+              name="expires_at"
+              type="date"
+              defaultValue={room?.expires_at ? room.expires_at.slice(0, 10) : ""}
+              className={field}
+            />
+          </label>
+        </div>
       </div>
 
       <label className="block">

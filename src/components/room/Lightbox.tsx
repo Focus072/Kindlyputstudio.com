@@ -23,6 +23,8 @@ type Props = {
   watermark?: string | null;
   /** Admins can always download. */
   alwaysDownload?: boolean;
+  /** True while something sits on top (the notes sheet): letter shortcuts are off. */
+  paused?: boolean;
 };
 
 const statusChip = {
@@ -33,7 +35,7 @@ const statusChip = {
 const statusShort = { approved: "Approved", changes: "Changes", pending: "Pending" } as const;
 const statusText = { approved: "Approved", changes: "Changes requested", pending: "Pending review" } as const;
 
-export function Lightbox({ files, index, slug, onIndex, onReview, onComment, startAt, watermark, alwaysDownload }: Props) {
+export function Lightbox({ files, index, slug, onIndex, onReview, onComment, startAt, watermark, alwaysDownload, paused }: Props) {
   const file = index === null ? null : files[index];
   const videoRef = useRef<HTMLVideoElement>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -42,21 +44,40 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
   const versionId = picked.fileId === (file?.id ?? null) ? picked.versionId : null;
   const setVersionId = (id: string | null) => setPicked({ fileId: file?.id ?? null, versionId: id });
 
+  // Latest review handlers for the keyboard shortcuts, without re-binding on every render.
+  const shortcuts = useRef<{ approve: () => void; changes: () => void; note: () => void } | null>(null);
+
   useEffect(() => {
-    if (index === null) return;
+    if (index === null || paused) return;
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && shortcuts.current) {
+        const k = e.key.toLowerCase();
+        if (k === "a") return shortcuts.current.approve();
+        if (k === "x") return shortcuts.current.changes();
+        if (k === "c" || k === "n") {
+          e.preventDefault();
+          return shortcuts.current.note();
+        }
+      }
       if (e.key === "Escape") onIndex(null);
       if (e.key === "ArrowRight") onIndex((index + 1) % files.length);
       if (e.key === "ArrowLeft") onIndex((index - 1 + files.length) % files.length);
     };
     window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, files.length, onIndex, paused]);
+
+  const isOpen = index !== null;
+  useEffect(() => {
+    if (!isOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [index, files.length, onIndex]);
+  }, [isOpen]);
 
   // A timestamp tapped while this video is already open: jump there now.
   useEffect(() => {
@@ -80,6 +101,21 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
     const t = videoRef.current?.currentTime;
     return typeof t === "number" && Number.isFinite(t) ? t : null;
   }
+
+  useEffect(() => {
+    shortcuts.current =
+      file && !older && !paused && onReview && onComment
+        ? {
+            approve: () => onReview(file, "approved"),
+            changes: () => onReview(file, "changes"),
+            note: () => {
+              const v = videoRef.current;
+              const t = file.kind === "video" && v && Number.isFinite(v.currentTime) ? v.currentTime : null;
+              onComment(file, t);
+            },
+          }
+        : null;
+  });
 
   return (
     <AnimatePresence>
@@ -231,6 +267,13 @@ export function Lightbox({ files, index, slug, onIndex, onReview, onComment, sta
 
           {file.caption && !older && (
             <p className="mx-auto max-w-2xl whitespace-pre-wrap px-6 pt-3 text-center text-sm text-white/80">{file.caption}</p>
+          )}
+
+          {!older && onReview && onComment && (
+            <p className="hidden pt-3 text-center font-typewriter text-[11px] text-white/40 sm:pointer-fine:block">
+              Keys: <kbd className="text-white/70">A</kbd> approve · <kbd className="text-white/70">X</kbd> changes ·{" "}
+              <kbd className="text-white/70">C</kbd> note · <kbd className="text-white/70">← →</kbd> move
+            </p>
           )}
 
           <div className="flex items-center justify-center gap-4 p-5 sm:gap-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]">

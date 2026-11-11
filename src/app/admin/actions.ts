@@ -26,6 +26,8 @@ function roomFields(formData: FormData) {
   const accent = isHex(accentRaw) && accentRaw.toLowerCase() !== getTheme(preset).accent.toLowerCase() ? accentRaw : null;
   const expiresRaw = text(formData, "expires_at", 30);
   const expiresAt = expiresRaw ? new Date(`${expiresRaw}T23:59:59`).toISOString() : null;
+  const reviewRaw = text(formData, "review_by", 10);
+  const reviewBy = /^\d{4}-\d{2}-\d{2}$/.test(reviewRaw) ? reviewRaw : null;
   const status = text(formData, "status", 10);
   const layout = text(formData, "layout", 10);
   const downloads = text(formData, "downloads", 10);
@@ -53,9 +55,15 @@ function roomFields(formData: FormData) {
     preset,
     accent,
     expiresAt,
+    reviewBy,
     status: ["draft", "live", "archived"].includes(status) ? status : "live",
     showcase: formData.get("showcase") === "on",
   };
+}
+
+/** True when the database does not have the rooms.review_by column yet (migration 0007). */
+function missingReviewBy(error: { message?: string; code?: string }) {
+  return /review_by/.test(error.message ?? "");
 }
 
 // Rooms ----------------------------------------------------------------------
@@ -68,36 +76,38 @@ export async function createRoom(_prev: FormState, formData: FormData): Promise<
 
   const slug = roomSlug(f.title);
 
-  const { data, error } = await supabaseAdmin()
-    .from("rooms")
-    .insert({
-      slug,
-      title: f.title,
-      client_name: f.clientName,
-      delivered_by: f.deliveredBy,
-      theme_preset: f.preset,
-      accent_color: f.accent,
-      expires_at: f.expiresAt,
-      intro: f.intro,
-      status: "live",
-    })
-    .select("id")
-    .single();
+  const row = {
+    slug,
+    title: f.title,
+    client_name: f.clientName,
+    delivered_by: f.deliveredBy,
+    theme_preset: f.preset,
+    accent_color: f.accent,
+    expires_at: f.expiresAt,
+    intro: f.intro,
+    status: "live",
+    ...(f.reviewBy ? { review_by: f.reviewBy } : {}),
+  };
+  let { data, error } = await supabaseAdmin().from("rooms").insert(row).select("id").single();
+  if (error && missingReviewBy(error)) {
+    // The review-by column is not in this database yet: save the room without it.
+    const { review_by: _skip, ...rest } = row as typeof row & { review_by?: string };
+    void _skip;
+    ({ data, error } = await supabaseAdmin().from("rooms").insert(rest).select("id").single());
+  }
   if (error) {
     if (error.code === "23505") return { error: "Link clash, please press Create again." };
     return { error: error.message };
   }
   revalidatePath("/admin");
-  redirect(`/admin/rooms/${data.id}`);
+  redirect(`/admin/rooms/${data!.id}`);
 }
 
 export async function updateRoom(roomId: string, _prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const f = roomFields(formData);
   if (!f.title || !f.clientName) return { error: "Title and client name are required." };
-  const { error } = await supabaseAdmin()
-    .from("rooms")
-    .update({
+  const patch = {
       title: f.title,
       client_name: f.clientName,
       delivered_by: f.deliveredBy,
@@ -112,13 +122,24 @@ export async function updateRoom(roomId: string, _prev: FormState, formData: For
       payment_url: f.paymentUrl,
       payment_status: f.paymentStatus,
       intro: f.intro,
+      review_by: f.reviewBy,
       updated_at: new Date().toISOString(),
-    })
-    .eq("id", roomId);
+  };
+  let { error } = await supabaseAdmin().from("rooms").update(patch).eq("id", roomId);
+  let skippedReviewBy = false;
+  if (error && missingReviewBy(error)) {
+    const { review_by: _skip, ...rest } = patch;
+    void _skip;
+    ({ error } = await supabaseAdmin().from("rooms").update(rest).eq("id", roomId));
+    skippedReviewBy = !!f.reviewBy;
+  }
   if (error) return { error: error.message };
   revalidatePath(`/admin/rooms/${roomId}`);
   revalidatePath("/admin");
   revalidatePath("/");
+  if (skippedReviewBy) {
+    return { ok: true, warning: "Saved, but the review-by date needs a quick database update before it sticks." };
+  }
   if (f.paymentStatus === "due" && !f.paymentUrl) {
     return { ok: true, warning: "Saved. Add a payment link so the client has a way to pay." };
   }

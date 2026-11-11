@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { DeleteAccount } from "@/components/auth/DeleteAccount";
+import { formatReviewBy } from "@/lib/review-date";
 import { brand } from "@/config/brand";
 import { getTheme } from "@/config/themes";
 import { getClientUser, recordClientVisit } from "@/lib/client-auth";
@@ -11,7 +13,7 @@ import type { RoomRow } from "@/lib/types";
 
 export const metadata: Metadata = { title: "My rooms", robots: { index: false } };
 
-type RoomCard = RoomRow & { coverPath: string | null; fileCount: number; lastOpened: string };
+type RoomCard = RoomRow & { coverPath: string | null; fileCount: number; toReview: number; lastOpened: string };
 
 async function roomsFor(clientId: string): Promise<RoomCard[]> {
   const db = supabaseAdmin();
@@ -24,7 +26,7 @@ async function roomsFor(clientId: string): Promise<RoomCard[]> {
   if (ids.length === 0) return [];
   const [{ data: rooms }, { data: files }] = await Promise.all([
     db.from("rooms").select("*").in("id", ids).eq("status", "live"),
-    db.from("files").select("id, room_id, thumb_path, poster_path, sort_order").in("room_id", ids).is("replaced_by", null).order("sort_order"),
+    db.from("files").select("id, room_id, thumb_path, poster_path, sort_order, review_status").in("room_id", ids).is("replaced_by", null).order("sort_order"),
   ]);
   return (links ?? [])
     .map((l) => {
@@ -36,6 +38,7 @@ async function roomsFor(clientId: string): Promise<RoomCard[]> {
         ...room,
         coverPath: cover?.thumb_path ?? cover?.poster_path ?? null,
         fileCount: roomFiles.length,
+        toReview: roomFiles.filter((f) => f.review_status === "pending").length,
         lastOpened: l.last_opened_at as string,
       };
     })
@@ -117,15 +120,30 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
                         <p className="mt-1 line-clamp-2 font-display text-3xl uppercase leading-[0.95] text-white">{room.title}</p>
                       </div>
                     </div>
-                    <p className="px-4 py-3 text-xs text-mist/70">
-                      {room.fileCount} {room.fileCount === 1 ? "file" : "files"} · from {room.delivered_by}
-                    </p>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs text-mist/70">
+                      <span className="min-w-0 truncate">
+                        {room.fileCount} {room.fileCount === 1 ? "file" : "files"} · from {room.delivered_by}
+                      </span>
+                      {room.fileCount > 0 &&
+                        (room.toReview > 0 ? (
+                          <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 font-semibold text-white">
+                            {room.toReview} to review
+                            {room.review_by ? ` · by ${formatReviewBy(room.review_by, { month: "short", day: "numeric" })}` : ""}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 font-semibold text-approve">All reviewed</span>
+                        ))}
+                    </div>
                   </Link>
                 </li>
               );
             })}
           </ul>
         )}
+
+        <div className="mt-16 border-t border-white/10 pt-6">
+          <DeleteAccount />
+        </div>
       </section>
     </main>
   );
