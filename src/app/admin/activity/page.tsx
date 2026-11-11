@@ -10,9 +10,9 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/a
   await markActivitySeen();
   return (
     <main>
-      <p className="font-typewriter text-sm text-slate-500">Across every room</p>
+      <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">Across every room</p>
       <div className="flex items-end justify-between gap-4">
-        <h1 className="font-display text-5xl uppercase leading-none text-ink">Activity</h1>
+        <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Activity</h1>
         <a
           href={includeViews ? "/admin/activity" : "/admin/activity?views=1"}
           className="rounded-full bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200"

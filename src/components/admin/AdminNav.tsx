@@ -14,13 +14,14 @@ const tabs = [
   { href: "/admin/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/admin/settings") },
 ];
 
-/** Settings lives in the header on phones, so the tab bar keeps six slots. */
-const phoneTabs = tabs.filter((t) => t.href !== "/admin/settings");
+/** Phones get five tabs like a native app. Settings lives in the header and
+ *  New room is the + next to the Rooms title. */
+const phoneTabs = tabs.filter((t) => t.href !== "/admin/settings" && t.href !== "/admin/rooms/new");
 
 function Badge({ n, className = "" }: { n: number; className?: string }) {
   if (!n) return null;
   return (
-    <span className={`min-w-4 rounded-full bg-decline px-1 text-center text-[10px] font-bold leading-4 text-white ${className}`}>
+    <span className={`min-w-4 rounded-full bg-[#c4553f] px-1 text-center text-[10px] font-bold leading-4 text-white ${className}`}>
       {n > 99 ? "99+" : n}
     </span>
   );
@@ -34,11 +35,11 @@ export function AdminSettingsLink() {
       href="/admin/settings"
       aria-label="Settings"
       aria-current={on ? "page" : undefined}
-      className={`inline-flex size-9 items-center justify-center rounded-full sm:hidden ${
+      className={`inline-flex size-11 items-center justify-center rounded-full sm:hidden ${
         on ? "bg-white/12 text-white" : "text-mist/70 hover:bg-white/8 hover:text-white"
       }`}
     >
-      <Settings className="size-5" />
+      <Settings className="size-[19px]" />
     </Link>
   );
 }
@@ -66,42 +67,31 @@ export function AdminTopNav({ unread = 0 }: { unread?: number }) {
   );
 }
 
-/** Thumb-reach tab bar on phones, like a native app. */
+/** Thumb-reach tab bar on phones, sized like the iOS tab bar (49pt + home bar). */
 export function AdminTabBar({ unread = 0 }: { unread?: number }) {
   const path = usePathname();
   return (
     <nav
       aria-label="Admin"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.08] bg-ink/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl backdrop-saturate-150 sm:hidden"
     >
-      <ul className="grid grid-cols-6">
+      <ul className="grid grid-cols-5">
         {phoneTabs.map((t) => {
           const active = t.match(path);
           const Icon = t.icon;
-          const isNew = t.href === "/admin/rooms/new";
           return (
             <li key={t.href}>
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${
-                  active ? "text-white" : "text-mist/60"
+                className={`flex h-[52px] flex-col items-center justify-center gap-[3px] text-[10px] font-medium tracking-[0.01em] transition-colors ${
+                  active ? "text-white" : "text-mist/50 active:text-mist/80"
                 }`}
               >
-                {isNew ? (
-                  <span
-                    className={`flex size-8 items-center justify-center rounded-full ${
-                      active ? "bg-white text-ink" : "bg-steel text-ink"
-                    }`}
-                  >
-                    <Icon className="size-5" strokeWidth={2.5} />
-                  </span>
-                ) : (
-                  <span className="relative flex size-8 items-center justify-center">
-                    <Icon className="size-6" strokeWidth={active ? 2.4 : 1.8} />
-                    {t.href === "/admin/activity" && <Badge n={unread} className="absolute -right-1.5 -top-0.5" />}
-                  </span>
-                )}
+                <span className="relative flex h-6 items-center justify-center">
+                  <Icon className="size-[23px]" strokeWidth={active ? 2.2 : 1.7} />
+                  {t.href === "/admin/activity" && <Badge n={unread} className="absolute -right-2.5 -top-1 ring-2 ring-ink" />}
+                </span>
                 {t.label}
               </Link>
             </li>

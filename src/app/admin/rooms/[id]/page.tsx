@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronLeft } from "lucide-react";
 import { updateRoom } from "@/app/admin/actions";
 import { AdminFileGrid } from "@/components/admin/AdminFileGrid";
 import { CopyLink } from "@/components/admin/CopyLink";
@@ -36,11 +36,13 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
   return (
     <main className="space-y-9">
       <div>
-        <Link href="/admin" className="inline-flex items-center gap-1 py-1 text-sm text-slate-500 hover:text-ink">← All rooms</Link>
+        <Link href="/admin" className="inline-flex items-center gap-1 py-1 text-sm font-semibold text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:py-2.5">
+          <ChevronLeft className="size-4" /> All rooms
+        </Link>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <p className="font-typewriter text-sm text-slate-500">Prepared for {room.client_name}</p>
-            <h1 className="mt-1 break-words font-display text-[2.6rem] uppercase leading-[0.95] text-ink sm:text-5xl">{room.title}</h1>
+            <h1 className="mt-1 break-words font-display text-[2.25rem] uppercase leading-[0.95] text-ink sm:text-5xl">{room.title}</h1>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
             <CopyLink path={`/r/${room.slug}`} label="Copy link" className="justify-center py-2.5" />
@@ -56,8 +58,8 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
           {[
             { label: "Views", value: stats.views, tone: "text-ink" },
             { label: "Notes", value: stats.comments, tone: "text-ink" },
-            { label: "Approved", value: stats.approved, tone: "text-approve" },
-            { label: "Changes", value: stats.changes, tone: "text-decline" },
+            { label: "Approved", value: stats.approved, tone: "text-sage" },
+            { label: "Changes", value: stats.changes, tone: "text-clay" },
             { label: "Pending", value: stats.pending, tone: "text-ink" },
           ].map((s) => (
             <div key={s.label} className="min-w-0 px-1">
@@ -81,7 +83,7 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
       />
 
       {room.feedback_sent_at && (
-        <p className="rounded-2xl bg-approve/10 px-4 py-3 text-sm font-semibold text-approve ring-1 ring-approve/30">
+        <p className="rounded-2xl bg-sage-soft px-4 py-3 text-sm font-semibold text-sage ring-1 ring-sage/20">
           The client sent their feedback {timeAgo(room.feedback_sent_at)}: {stats.approved} approved, {stats.changes} need changes, {stats.pending} not reviewed.
         </p>
       )}

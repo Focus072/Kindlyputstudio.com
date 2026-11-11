@@ -584,7 +584,7 @@ export function Composer({ mode, clients, channels, tags, today, onClose, onPubl
                                   <span className="max-w-[11rem] truncate">{ch.name}</span>
                                   {ch.needsReconnect && <CircleAlert className="size-3.5 text-amber-600" />}
                                   {on && (
-                                    <span className="absolute -left-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-approve ring-2 ring-white">
+                                    <span className="absolute -left-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-sage ring-2 ring-white">
                                       <Check className="size-2.5 text-white" strokeWidth={4} />
                                     </span>
                                   )}

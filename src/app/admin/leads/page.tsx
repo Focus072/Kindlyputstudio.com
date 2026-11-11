@@ -17,7 +17,7 @@ type Lead = {
 };
 
 const tone: Record<Lead["status"], string> = {
-  new: "bg-approve text-white",
+  new: "bg-sage-soft text-sage",
   contacted: "bg-steel text-ink",
   won: "bg-ink text-white",
   closed: "bg-slate-100 text-slate-500",
@@ -31,8 +31,8 @@ export default async function LeadsPage() {
 
   return (
     <main>
-      <p className="font-typewriter text-sm text-slate-500">From the home page</p>
-      <h1 className="font-display text-5xl uppercase leading-none text-ink">Leads</h1>
+      <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">From the home page</p>
+      <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Leads</h1>
       <p className="mt-1 text-sm text-slate-500">
         {leads.length} total{fresh ? ` · ${fresh} new` : ""}. People who filled in &ldquo;Start a project&rdquo;.
       </p>

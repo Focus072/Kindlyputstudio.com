@@ -55,7 +55,7 @@ export function RoomAccess({ roomId, mode, invites, requests }: Props) {
                 <button
                   type="button"
                   onClick={() => start(() => resolveAccessRequest(roomId, r.id, true))}
-                  className="inline-flex items-center gap-1 rounded-full bg-approve px-3 py-1.5 text-xs font-bold text-white"
+                  className="inline-flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-white"
                 >
                   <Check className="size-3.5" /> Let in
                 </button>

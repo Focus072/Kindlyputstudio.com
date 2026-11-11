@@ -10,8 +10,8 @@ export default async function ClientsPage() {
 
   return (
     <main>
-      <p className="font-typewriter text-sm text-slate-500">Client accounts</p>
-      <h1 className="font-display text-5xl uppercase leading-none text-ink">Clients</h1>
+      <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">Client accounts</p>
+      <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Clients</h1>
       <p className="mt-1 text-sm text-slate-500">
         Everyone who created an account from a room link. {clients.length} total.
       </p>

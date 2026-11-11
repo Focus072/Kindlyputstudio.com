@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ClientAvatar } from "@/components/admin/ClientAvatar";
 import { requireAdmin } from "@/lib/auth";
@@ -32,11 +33,13 @@ export default async function ClientDetailPage({ params }: PageProps<"/admin/cli
   return (
     <main className="space-y-10">
       <div>
-        <Link href="/admin/clients" className="text-sm text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:inline-block max-sm:py-2.5">← All clients</Link>
+        <Link href="/admin/clients" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:py-2.5">
+          <ChevronLeft className="size-4" /> All clients
+        </Link>
         <div className="mt-3 flex items-center gap-4">
           <ClientAvatar name={client.full_name ?? client.email ?? "?"} url={client.avatar_url} size="size-14" />
           <div className="min-w-0">
-            <h1 className="break-words font-display text-4xl uppercase leading-none text-ink">{client.full_name ?? "No name"}</h1>
+            <h1 className="break-words font-display text-[2.125rem] uppercase leading-none text-ink sm:text-4xl">{client.full_name ?? "No name"}</h1>
             <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">
               {client.email} · {client.provider === "google" ? "Google account" : "Email account"} · joined{" "}
               {timeAgo(client.created_at)}

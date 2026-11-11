@@ -16,8 +16,8 @@ export function BufferConnect({ connected }: { connected: "settings" | "env" | n
   if (connected) {
     return (
       <div className="mt-4">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-approve/10 px-4 py-3">
-          <CircleCheck className="size-5 text-approve" />
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-sage-soft px-4 py-3">
+          <CircleCheck className="size-5 text-sage" />
           <p className="mr-auto text-sm font-semibold text-ink">Connected<span className="max-sm:hidden"> to Buffer</span></p>
           <form action={refresh}>
             <button disabled={refreshing} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink">
