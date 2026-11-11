@@ -319,44 +319,46 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
   return (
     <main>
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="font-typewriter text-sm text-slate-500">What&rsquo;s going out</p>
-          <h1 className="font-display text-5xl uppercase leading-none text-ink">Calendar</h1>
+      <div className="flex items-end justify-between gap-3 sm:flex-wrap">
+        <div className="min-w-0">
+          <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">What&rsquo;s going out</p>
+          <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Calendar</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
           {buffer.state !== "off" && (
             <button
               onClick={refresh}
               disabled={refreshing}
               aria-label="Sync with Buffer"
               title="Sync accounts and posts with Buffer"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink sm:w-auto sm:gap-1.5 sm:px-4"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink sm:w-auto sm:gap-1.5 sm:px-4 max-sm:size-10 max-sm:border-0 max-sm:bg-transparent max-sm:text-ink max-sm:active:bg-slate-200/70"
             >
-              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`size-[18px] sm:size-4 ${refreshing ? "animate-spin" : ""}`} />
               <span className="hidden text-sm font-semibold sm:inline">{refreshing ? "Syncing…" : "Sync"}</span>
             </button>
           )}
           <Link
             href={`/admin/calendar/ideas${client !== "all" && client !== UNASSIGNED ? `?c=${client}` : ""}`}
             title="Share a client's calendar and ideas board"
-            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink sm:px-4"
+            aria-label="Client plans"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink sm:px-4 max-sm:w-10 max-sm:px-0 max-sm:size-10 max-sm:border-0 max-sm:bg-transparent max-sm:text-ink max-sm:active:bg-slate-200/70"
           >
-            <Lightbulb className="size-4" /> <span className="hidden sm:inline">Client plans</span><span className="sm:hidden">Plans</span>
+            <Lightbulb className="size-[19px] sm:size-4" /> <span className="hidden sm:inline">Client plans</span>
           </Link>
           <Link
             href="/admin/calendar/settings"
             aria-label="Calendar settings"
-            className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink max-sm:size-10 max-sm:border-0 max-sm:bg-transparent max-sm:text-ink max-sm:active:bg-slate-200/70"
           >
-            <Settings className="size-5" />
+            <Settings className="size-[19px] sm:size-5" />
           </Link>
           <button
             onClick={() => newPost(isCurrent ? today : selected)}
             disabled={!dbReady}
-            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40"
+            aria-label={canPost ? "New post" : "Add a plan"}
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40 max-sm:ml-1.5 max-sm:size-11 max-sm:px-0"
           >
-            <Plus className="size-4" strokeWidth={2.5} /> {canPost ? "New post" : "Add a plan"}
+            <Plus className="size-5 sm:size-4" strokeWidth={2.4} /> <span className="max-sm:hidden">{canPost ? "New post" : "Add a plan"}</span>
           </button>
         </div>
       </div>
@@ -390,8 +392,8 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
 
       {/* Client filter */}
       {clientChips.length > 0 && (
-        <nav ref={railRef} aria-label="Filter by client" className="-mx-4 mt-5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-          <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+        <nav ref={railRef} aria-label="Filter by client" className="-mx-4 mt-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:mt-5 sm:px-0">
+          <div className="flex w-max gap-1.5 sm:w-auto sm:flex-wrap sm:gap-2">
             <ClientChip active={client === "all"} onClick={() => pickClient("all")} label="All clients" count={posts.length} />
             {clientChips.map((c) => (
               <ClientChip key={c.id} active={client === c.id} onClick={() => pickClient(c.id)} label={c.name} color={c.color} accounts={c.accounts} count={counts.get(c.id) ?? 0} />
@@ -402,7 +404,10 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
 
       {/* Right now */}
       {buffer.state !== "off" && (
-        <section aria-label="Right now" className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+        <section
+          aria-label="Right now"
+          className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-slate-200/80 ring-1 ring-slate-200/80 sm:mt-4 sm:gap-3 sm:overflow-visible sm:rounded-none sm:bg-transparent sm:ring-0 lg:grid-cols-4"
+        >
           <Stat
             icon={<CalendarDays className="size-4" />}
             label="Today"
@@ -418,14 +423,14 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
             type="button"
             onClick={() => summary.next && openPost(summary.next)}
             disabled={!summary.next}
-            className="flex min-w-0 items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 hover:ring-ink disabled:hover:ring-slate-200 sm:p-4"
+            className="flex min-w-0 items-center gap-2.5 bg-white p-3 text-left active:bg-slate-50 sm:gap-3 sm:rounded-2xl sm:p-4 sm:shadow-sm sm:ring-1 sm:ring-slate-200 sm:hover:ring-ink sm:disabled:hover:ring-slate-200"
           >
             {summary.next ? (
               <>
                 {summary.next.thumb ? (
-                  <img src={summary.next.thumb} alt="" className="size-11 shrink-0 rounded-xl object-cover" />
+                  <img src={summary.next.thumb} alt="" className="size-10 shrink-0 rounded-lg object-cover sm:size-11 sm:rounded-xl" />
                 ) : (
-                  <ChannelAvatar avatar={summary.next.channelAvatar} service={summary.next.platform} name={summary.next.channelName} size="size-11" />
+                  <ChannelAvatar avatar={summary.next.channelAvatar} service={summary.next.platform} name={summary.next.channelName} size="size-10 sm:size-11" />
                 )}
                 <span className="min-w-0">
                   <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -466,33 +471,33 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
       )}
 
       {/* Range switcher and view */}
-      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
-        <div className="order-1 flex min-w-0 flex-1 items-center gap-1">
-          <Link href={prevHref} aria-label={view === "week" ? "Previous week" : "Previous month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100">
+      <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2.5 sm:mt-4 sm:gap-2 sm:rounded-3xl sm:bg-white sm:p-2 sm:shadow-sm sm:ring-1 sm:ring-slate-200">
+        <div className="order-1 flex min-w-0 flex-1 items-center gap-0.5 sm:gap-1">
+          <Link href={prevHref} aria-label={view === "week" ? "Previous week" : "Previous month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 max-sm:-ml-2 max-sm:active:bg-slate-200/70">
             <ChevronLeft className="size-5" />
           </Link>
-          <div className="min-w-0 px-1">
-            <p className="truncate font-display text-2xl uppercase leading-none text-ink sm:text-3xl">
+          <div className="min-w-0 sm:px-1">
+            <p className="truncate font-display text-[1.625rem] uppercase leading-none text-ink sm:text-3xl">
               <span className="sm:hidden">{shortLabel}</span>
               <span className="hidden sm:inline">{rangeLabel}</span>
             </p>
             <p className="mt-0.5 truncate text-xs text-slate-500">
               {inRange.length} post{inRange.length === 1 ? "" : "s"}
               {activeClient ? ` · ${activeClient.name}` : ""}
-              {buffer.state === "ok" ? " · live from Buffer" : ""}
+              {buffer.state === "ok" ? <span className="max-sm:hidden"> · live from Buffer</span> : ""}
             </p>
           </div>
-          <Link href={nextHref} aria-label={view === "week" ? "Next week" : "Next month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100">
+          <Link href={nextHref} aria-label={view === "week" ? "Next week" : "Next month"} className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 max-sm:active:bg-slate-200/70">
             <ChevronRight className="size-5" />
           </Link>
           {!isCurrent && (
-            <Link href={qs({ view })} className="ml-1 inline-flex h-9 shrink-0 items-center rounded-full border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink">
+            <Link href={qs({ view })} className="inline-flex h-9 shrink-0 sm:ml-1 items-center rounded-full border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink">
               Today
             </Link>
           )}
         </div>
         <div className="order-3 flex w-full items-center gap-2 sm:order-2 sm:w-auto">
-          <select value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label="Network" className="h-10 min-w-0 flex-1 rounded-full border border-slate-200 bg-white pl-3 pr-8 text-sm font-semibold text-slate-600 sm:flex-none">
+          <select value={platform} onChange={(e) => setPlatform(e.target.value)} aria-label="Network" className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-sm font-semibold text-slate-600 sm:flex-none sm:rounded-full max-sm:h-9 max-sm:border-slate-200/80 max-sm:font-medium max-sm:text-ink">
             <option value="all">All networks</option>
             {services.map((s) => (
               <option key={s} value={s}>
@@ -500,7 +505,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               </option>
             ))}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} aria-label="Status" className="h-10 min-w-0 flex-1 rounded-full border border-slate-200 bg-white pl-3 pr-8 text-sm font-semibold text-slate-600 sm:flex-none">
+          <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} aria-label="Status" className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-sm font-semibold text-slate-600 sm:flex-none sm:rounded-full max-sm:h-9 max-sm:border-slate-200/80 max-sm:font-medium max-sm:text-ink">
             <option value="all">Every status</option>
             <option value="scheduled">Scheduled</option>
             <option value="posted">Posted</option>
@@ -508,7 +513,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
             <option value="attention">Needs a look</option>
           </select>
         </div>
-        <div role="radiogroup" aria-label="View" className="order-2 flex shrink-0 rounded-full bg-slate-100 p-1 sm:order-3">
+        <div role="radiogroup" aria-label="View" className="order-2 flex shrink-0 rounded-full bg-slate-100 p-1 max-sm:rounded-[10px] max-sm:bg-slate-200/70 max-sm:p-0.5 sm:order-3">
             {(
               [
                 { id: "week", label: "Week", icon: CalendarRange },
@@ -522,7 +527,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                 aria-checked={view === v.id}
                 aria-label={v.label}
                 onClick={() => view !== v.id && setView(v.id)}
-                className={`inline-flex size-8 items-center justify-center rounded-full lg:w-auto lg:gap-1.5 lg:px-3 ${view === v.id ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"}`}
+                className={`inline-flex size-8 items-center justify-center rounded-full max-sm:h-8 max-sm:w-10 max-sm:rounded-lg lg:w-auto lg:gap-1.5 lg:px-3 ${view === v.id ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"}`}
               >
                 <v.icon className="size-4" />
                 <span className="hidden text-xs font-semibold lg:inline">{v.label}</span>
@@ -588,19 +593,19 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
           </div>
 
           {/* Phones and tablets: day by day */}
-          <div className="mt-4 space-y-4 lg:hidden">
+          <div className="mt-4 space-y-5 sm:space-y-4 lg:hidden">
             {week.map((k) => {
               const items = byDay.get(k) ?? [];
               const past = k < today;
               return (
                 <section key={k} id={`day-m-${k}`} className="scroll-mt-24">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <h2 className={`font-display text-2xl uppercase leading-none ${past ? "text-slate-400" : "text-ink"}`}>
+                    <h2 className={`font-display text-[1.375rem] uppercase leading-none sm:text-2xl ${past ? "text-slate-400" : "text-ink"}`}>
                       {dayLabel(k, { weekday: "long", month: "short", day: "numeric" })}
                       {k === today && <span className="ml-2 rounded-full bg-ink px-2 py-0.5 align-middle font-sans text-[10px] font-bold text-white">TODAY</span>}
                     </h2>
                     {!past && dbReady && (
-                      <button onClick={() => newPost(k)} aria-label={`New post on ${dayLabel(k)}`} className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink">
+                      <button onClick={() => newPost(k)} aria-label={`New post on ${dayLabel(k)}`} className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:border-ink hover:text-ink max-sm:-my-1 max-sm:size-10 max-sm:border-0 max-sm:bg-transparent max-sm:text-ink max-sm:active:bg-slate-200/70">
                         <Plus className="size-4" />
                       </button>
                     )}
@@ -612,7 +617,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                       ))}
                     </ul>
                   ) : (
-                    <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-400">Nothing {past ? "went out" : "planned"}.</p>
+                    <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-400 max-sm:border-0 max-sm:bg-white/60 max-sm:py-2.5">Nothing {past ? "went out" : "planned"}.</p>
                   )}
                 </section>
               );
@@ -632,11 +637,11 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
       )}
 
       {view === "month" && (
-        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-          <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4 sm:mt-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200 max-sm:ring-slate-200/80">
+            <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400 max-sm:bg-white max-sm:pt-1 max-sm:text-[10px] max-sm:font-semibold">
               {WEEKDAYS.map((d) => (
-                <div key={d} className="py-2">
+                <div key={d} className="py-2 max-sm:py-1.5">
                   <span className="sm:hidden">{d[0]}</span>
                   <span className="hidden sm:inline">{d}</span>
                 </div>
@@ -657,19 +662,27 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                     {...dropProps(k)}
                     aria-label={`${dayLabel(k)}, ${items.length} post${items.length === 1 ? "" : "s"}`}
                     aria-pressed={isSel}
-                    className={`relative flex min-h-16 cursor-pointer flex-col items-stretch gap-1 border-slate-100 p-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-brand sm:min-h-28 sm:p-1.5 ${
-                      i % 7 ? "border-l" : ""
-                    } ${i >= 7 ? "border-t" : ""} ${dropDay === k && dragId ? "bg-steel/40" : outside ? "bg-slate-50/70" : "bg-white"} ${isSel ? "z-[1] ring-2 ring-inset ring-ink" : "hover:bg-slate-50"}`}
+                    className={`relative flex min-h-[3.25rem] cursor-pointer flex-col items-stretch gap-1 border-slate-100 px-0.5 pb-1.5 pt-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-brand sm:min-h-28 sm:p-1.5 ${
+                      i % 7 ? "sm:border-l" : ""
+                    } ${i >= 7 ? "border-t" : ""} ${dropDay === k && dragId ? "bg-steel/40" : outside ? "sm:bg-slate-50/70" : "bg-white"} ${isSel ? "sm:z-[1] sm:ring-2 sm:ring-inset sm:ring-ink" : "hover:bg-slate-50"}`}
                   >
-                    <span className={`flex size-6 items-center justify-center self-center rounded-full text-xs font-bold sm:self-start ${k === today ? "bg-ink text-white" : outside ? "text-slate-300" : "text-slate-600"}`}>
+                    {/* Phones: iOS Calendar style, selected day is a filled circle, today is bold. */}
+                    <span
+                      className={`flex size-8 items-center justify-center self-center rounded-full text-[15px] tabular-nums sm:hidden ${
+                        isSel ? "bg-ink font-semibold text-white" : k === today ? "font-bold text-ink ring-1 ring-ink/70" : outside ? "text-slate-300" : "text-ink"
+                      }`}
+                    >
+                      {Number(k.slice(8))}
+                    </span>
+                    <span className={`hidden size-6 items-center justify-center self-center rounded-full text-xs font-bold sm:flex sm:self-start ${k === today ? "bg-ink text-white" : outside ? "text-slate-300" : "text-slate-600"}`}>
                       {Number(k.slice(8))}
                     </span>
                     {items.length > 0 && (
-                      <span className="flex flex-wrap justify-center gap-0.5 sm:hidden">
-                        {items.slice(0, 4).map((p) => (
+                      <span className="flex h-1.5 flex-wrap justify-center gap-[3px] overflow-hidden sm:hidden">
+                        {items.slice(0, 3).map((p) => (
                           <span key={p.id} className="size-1.5 rounded-full" style={{ background: colorOf(clientOf(p)), opacity: outside ? 0.5 : 1 }} />
                         ))}
-                        {items.length > 4 && <span className="text-[9px] font-bold leading-none text-slate-400">+</span>}
+                        
                       </span>
                     )}
                     <span className={`hidden flex-col gap-1 sm:flex ${outside ? "opacity-50" : ""}`}>
@@ -690,7 +703,7 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                           >
                             {p.status === "error" ? <CircleAlert className="size-3 shrink-0 text-decline" /> : <PlatformIcon service={p.platform} className="size-3.5" />}
                             <span className="truncate text-slate-600">{timeLabel(p.at).replace(":00", "").replace(" ", "").toLowerCase()}</span>
-                            {p.status === "posted" && <span className="size-1.5 shrink-0 rounded-full bg-approve" />}
+                            {p.status === "posted" && <span className="size-1.5 shrink-0 rounded-full bg-[#6f9a7b]" />}
                             {p.caption && <span className="hidden min-w-0 basis-full truncate text-slate-500 xl:block">{p.caption}</span>}
                           </span>
                         );
@@ -703,9 +716,9 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
             </div>
           </div>
 
-          <section aria-live="polite" className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 lg:sticky lg:top-24">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-display text-2xl uppercase leading-none text-ink">{dayLabel(selected)}</h2>
+          <section aria-live="polite" className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 max-sm:bg-transparent max-sm:p-0 max-sm:ring-0 lg:sticky lg:top-24">
+            <div className="flex items-center justify-between gap-2 max-sm:px-1">
+              <h2 className="font-display text-2xl uppercase leading-none text-ink max-sm:text-[1.375rem]">{dayLabel(selected)}</h2>
               <div className="flex shrink-0 gap-1.5">
                 {canPost && (
                   <button
@@ -713,18 +726,18 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
                     disabled={!dbReady}
                     aria-label="Add a plan on this day"
                     title="Add a plan (only on this calendar)"
-                    className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:border-ink hover:text-ink disabled:opacity-40"
+                    className="inline-flex size-9 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:border-ink hover:text-ink disabled:opacity-40 max-sm:size-10 max-sm:border-0 max-sm:text-ink max-sm:active:bg-slate-200/70"
                   >
-                    <NotebookPen className="size-4" />
+                    <NotebookPen className="size-[18px] sm:size-4" />
                   </button>
                 )}
                 <button
                   onClick={() => newPost(selected)}
                   disabled={!dbReady}
                   aria-label={canPost ? "New post on this day" : "Add a plan on this day"}
-                  className="inline-flex size-9 items-center justify-center rounded-full bg-ink text-white hover:bg-slate-brand disabled:opacity-40"
+                  className="inline-flex size-9 items-center justify-center rounded-full bg-ink text-white hover:bg-slate-brand disabled:opacity-40 max-sm:size-10 max-sm:border-0 max-sm:bg-transparent max-sm:text-ink max-sm:active:bg-slate-200/70"
                 >
-                  <Plus className="size-4" />
+                  <Plus className="size-5 sm:size-4" />
                 </button>
               </div>
             </div>
@@ -732,13 +745,13 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               <button
                 onClick={() => newPost(selected)}
                 disabled={!dbReady}
-                className="mt-4 flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 hover:border-ink hover:text-ink"
+                className="mt-4 flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 hover:border-ink hover:text-ink max-sm:mt-2.5 max-sm:border-0 max-sm:bg-white max-sm:py-6 max-sm:ring-1 max-sm:ring-slate-200/80"
               >
                 <CalendarDays className="size-6 text-slate-300" />
                 Nothing {selected < today ? "went out" : "scheduled"}. {selected >= today && canPost ? <><span className="pointer-fine:hidden">Tap</span><span className="hidden pointer-fine:inline">Click</span> to plan a post.</> : ""}
               </button>
             ) : (
-              <ul className="mt-3 space-y-3">
+              <ul className="mt-3 space-y-3 max-sm:mt-2.5 max-sm:space-y-2.5">
                 {(byDay.get(selected) ?? []).map((p) => (
                   <li key={p.id}>{card(p)}</li>
                 ))}
@@ -789,8 +802,8 @@ function ClientChip({
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full pl-1.5 pr-3.5 text-sm font-semibold transition ${
-        active ? "bg-ink text-white shadow-md" : "bg-white text-ink shadow-sm ring-1 ring-slate-200 hover:ring-ink"
+      className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full pl-1 pr-3 text-[13px] font-semibold transition sm:h-11 sm:pl-1.5 sm:pr-3.5 sm:text-sm ${
+        active ? "bg-ink text-white sm:shadow-md" : "bg-white text-ink ring-1 ring-slate-200/80 hover:ring-ink sm:shadow-sm sm:ring-slate-200"
       }`}
     >
       {accounts?.length ? (
@@ -798,9 +811,9 @@ function ClientChip({
           {accounts.slice(0, 3).map((a) => (
             <span key={a.id} className={`rounded-full ring-2 ${active ? "ring-ink" : "ring-white"}`}>
               {a.avatar ? (
-                <img src={a.avatar} alt="" className="size-8 rounded-full object-cover" />
+                <img src={a.avatar} alt="" className="size-7 rounded-full object-cover sm:size-8" />
               ) : (
-                <span className="flex size-8 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: color }}>
+                <span className="flex size-7 items-center justify-center rounded-full text-[10px] font-bold text-white sm:size-8" style={{ background: color }}>
                   {label.slice(0, 2).toUpperCase()}
                 </span>
               )}
@@ -808,11 +821,11 @@ function ClientChip({
           ))}
         </span>
       ) : (
-        <span className={`flex size-8 items-center justify-center rounded-full ${active ? "bg-white/15" : "bg-slate-100"}`}>
+        <span className={`flex size-7 items-center justify-center rounded-full sm:size-8 ${active ? "bg-white/15" : "bg-slate-100"}`}>
           {color ? <span className="size-3 rounded-full" style={{ background: color }} /> : <LayoutGrid className="size-4" />}
         </span>
       )}
-      {color && <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />}
+      {color && <span className="size-2 shrink-0 rounded-full sm:size-2.5" style={{ background: color }} />}
       <span className="whitespace-nowrap">{label}</span>
       <span className={`rounded-full px-1.5 text-[11px] font-bold ${active ? "bg-white/15 text-white" : "bg-slate-100 text-slate-500"}`}>{count}</span>
     </button>
@@ -841,13 +854,13 @@ function Stat({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`min-w-0 rounded-2xl p-3 text-left shadow-sm ring-1 transition sm:p-4 ${active ? "bg-ink text-white ring-ink" : "bg-white ring-slate-200 hover:ring-ink"}`}
+      className={`min-w-0 p-3 text-left transition sm:rounded-2xl sm:p-4 sm:shadow-sm sm:ring-1 ${active ? "bg-ink text-white sm:ring-ink" : "bg-white active:bg-slate-50 sm:ring-slate-200 sm:hover:ring-ink"}`}
     >
       <span className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider ${active ? "text-mist" : "text-slate-400"}`}>
         {icon} {label}
       </span>
       <span className="mt-0.5 block truncate text-sm font-bold sm:text-base">{value}</span>
-      <span className={`block truncate text-xs ${active ? "text-mist" : warn ? "font-semibold text-amber-700" : "text-slate-500"}`}>{detail}</span>
+      <span className={`block text-xs max-sm:line-clamp-2 sm:truncate ${active ? "text-mist" : warn ? "font-semibold text-ochre" : "text-slate-500"}`}>{detail}</span>
     </button>
   );
 }
@@ -881,7 +894,7 @@ function WeekTile({
         <ChannelAvatar avatar={post.channelAvatar} service={post.platform} name={post.channelName} size="size-7" badge="size-3.5" />
         <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-ink">{timeLabel(post.at)}</span>
         <span
-          className={`size-2 shrink-0 rounded-full ${post.status === "posted" ? (reminded ? "bg-amber-400" : "bg-approve") : post.status === "error" ? "bg-decline" : post.status === "scheduled" ? "bg-slate-brand" : "border border-slate-400"}`}
+          className={`size-2 shrink-0 rounded-full ${post.status === "posted" ? (reminded ? "bg-amber-400" : "bg-[#6f9a7b]") : post.status === "error" ? "bg-[#b0664f]" : post.status === "scheduled" ? "bg-slate-brand" : "border border-slate-400"}`}
           title={post.status}
         />
       </span>

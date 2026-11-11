@@ -88,8 +88,8 @@ export function AdminClientPlan({
       </Link>
       <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-typewriter text-sm text-slate-500">What the client sees</p>
-          <h1 className="font-display text-5xl uppercase leading-none text-ink">Client plans</h1>
+          <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">What the client sees</p>
+          <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Client plans</h1>
         </div>
       </div>
 

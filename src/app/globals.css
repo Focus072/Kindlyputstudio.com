@@ -14,6 +14,14 @@
   --color-approve: var(--brand-approve);
   --color-decline: var(--brand-decline);
 
+  /* Muted status tones for the studio admin (no bright greens or reds). */
+  --color-sage: #3f6b4f;
+  --color-sage-soft: #e2ece4;
+  --color-clay: #9a4f3d;
+  --color-clay-soft: #f3e2dc;
+  --color-ochre: #7d6128;
+  --color-ochre-soft: #f1e8d2;
+
   --color-room-bg: var(--room-bg);
   --color-room-surface: var(--room-surface);
   --color-room-fg: var(--room-fg);
@@ -92,4 +100,23 @@ body:has(.room-root) {
 .kp-color::-moz-color-swatch {
   border: none;
   border-radius: 0.5rem;
+}
+
+/* Admin on phones: one calm surface system, like a native iOS app.
+   Grouped cards get the same 18px corners and a hairline instead of a drop
+   shadow, so nothing looks like a pill stacked inside a pill. */
+@media (max-width: 639.98px) {
+  .kp-admin main .rounded-3xl,
+  .kp-admin main .rounded-\[26px\] {
+    border-radius: 1.125rem;
+  }
+  .kp-admin main .shadow-sm {
+    box-shadow: none;
+  }
+  /* iOS zooms into any field under 16px; keep forms steady. */
+  .kp-admin input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+  .kp-admin select,
+  .kp-admin textarea {
+    font-size: 16px;
+  }
 }

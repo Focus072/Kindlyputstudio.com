@@ -10,12 +10,12 @@ export const statusTone: Record<CalPost["status"], string> = {
   idea: "border border-dashed border-slate-300 text-slate-500",
   draft: "border border-dashed border-slate-400 text-slate-600",
   scheduled: "bg-steel/60 text-ink",
-  posted: "bg-approve text-white",
-  error: "bg-decline text-white",
+  posted: "bg-sage-soft text-sage",
+  error: "bg-clay-soft text-clay",
 };
 
 const btn =
-  "inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink";
+  "inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink max-sm:h-9 max-sm:px-3.5 max-sm:text-[13px]";
 
 export function PostCard({
   post,

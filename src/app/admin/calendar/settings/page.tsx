@@ -19,7 +19,7 @@ export default async function CalendarSettingsPage() {
       <Link href="/admin/calendar" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:py-2.5">
         <ChevronLeft className="size-4" /> Calendar
       </Link>
-      <h1 className="mt-1 font-display text-5xl uppercase leading-none text-ink">Calendar settings</h1>
+      <h1 className="mt-1 font-display text-[2.125rem] uppercase leading-none text-ink sm:text-5xl">Calendar settings</h1>
 
       {!ready && (
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">

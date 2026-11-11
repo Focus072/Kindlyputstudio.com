@@ -19,7 +19,7 @@ export default async function ClientPlansPage({ searchParams }: PageProps<"/admi
   if (!client) {
     return (
       <main className="max-w-3xl">
-        <h1 className="font-display text-5xl uppercase leading-none text-ink">Client plans</h1>
+        <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Client plans</h1>
         <p className="mt-4 text-sm text-slate-500">
           Add a client in{" "}
           <Link href="/admin/calendar/settings" className="font-semibold text-ink underline underline-offset-2">

@@ -37,8 +37,8 @@ import { uploadToRoom } from "@/lib/upload-client";
 import { Lightbox } from "@/components/room/Lightbox";
 
 const statusStyle = {
-  approved: "bg-approve text-white",
-  changes: "bg-decline text-white",
+  approved: "bg-[#5f8a6c] text-white",
+  changes: "bg-[#b0664f] text-white",
   pending: "bg-slate-100 text-slate-600",
 } as const;
 
