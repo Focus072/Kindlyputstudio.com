@@ -11,6 +11,7 @@ import {
   CircleAlert,
   Clock,
   LayoutGrid,
+  Lightbulb,
   List,
   NotebookPen,
   Plus,
@@ -336,6 +337,13 @@ function Calendar({ view, month, anchor, today, clients, channels, tags, posts, 
               <span className="hidden text-sm font-semibold sm:inline">{refreshing ? "Syncing…" : "Sync"}</span>
             </button>
           )}
+          <Link
+            href={`/admin/calendar/ideas${client !== "all" && client !== UNASSIGNED ? `?c=${client}` : ""}`}
+            title="Share a client's calendar and ideas board"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink sm:px-4"
+          >
+            <Lightbulb className="size-4" /> <span className="hidden sm:inline">Client plans</span><span className="sm:hidden">Plans</span>
+          </Link>
           <Link
             href="/admin/calendar/settings"
             aria-label="Calendar settings"

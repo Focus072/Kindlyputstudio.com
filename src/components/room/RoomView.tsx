@@ -1,9 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, CreditCard, Download, Lock, Play, Send, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, CheckCheck, CreditCard, Download, Lock, Play, Send, UserRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { addComment, recordView, setReview, submitFeedback } from "@/app/r/[slug]/actions";
+import { addComment, approveRemaining, recordView, setReview, submitFeedback } from "@/app/r/[slug]/actions";
 import { themeVars } from "@/config/themes";
 import type { RoomFile, RoomStats } from "@/lib/types";
 import { VerifiedDot } from "@/components/ui/VerifiedDot";
@@ -32,6 +32,8 @@ export type RoomViewProps = {
     feedbackSentAt?: string | null;
     /** Reviews or notes saved after the last "Send feedback". */
     unsentChanges?: boolean;
+    /** Day the studio would like feedback by (YYYY-MM-DD). */
+    reviewBy?: string | null;
   };
   files: RoomFile[];
   heroId: string | null;
@@ -67,6 +69,27 @@ function splitTitle(title: string) {
   return m ? { date: m[1], headline: m[2] } : { date: null, headline: title };
 }
 
+type StatusFilter = "all" | "pending" | "approved" | "changes";
+
+const FILTERS: { key: Exclude<StatusFilter, "all">; label: string; dot: string }[] = [
+  { key: "pending", label: "To review", dot: "bg-room-fg" },
+  { key: "approved", label: "Approved", dot: "bg-approve" },
+  { key: "changes", label: "Changes", dot: "bg-decline" },
+];
+
+/** "Fri, Nov 14" plus how far away that is, from a YYYY-MM-DD date. */
+function reviewByLabel(day: string) {
+  const [y, m, d] = day.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const due = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((due.getTime() - today.getTime()) / 864e5);
+  const date = due.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const when = days === 0 ? "today" : days === 1 ? "tomorrow" : days > 1 && days <= 6 ? `in ${days} days` : null;
+  return { date, when, past: days < 0 };
+}
+
 function titleSize(headline: string) {
   const n = headline.length;
   if (n <= 16) return "text-[clamp(2.9rem,13vw,9.5rem)]";
@@ -82,6 +105,9 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
   const [startAt, setStartAt] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeSet, setActiveSet] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [confirmRest, setConfirmRest] = useState(false);
+  const [approvingRest, setApprovingRest] = useState(false);
   const [sentAt, setSentAt] = useState<string | null>(room.feedbackSentAt ?? null);
   /** Reviews or notes since the last "Send feedback". */
   const [changedSinceSend, setChangedSinceSend] = useState(room.unsentChanges ? 1 : 0);
@@ -128,13 +154,48 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     const hasLoose = files.some((f) => !f.category);
     return names.length >= 2 || (names.length === 1 && hasLoose) ? names : [];
   }, [files]);
-  const visible = activeSet && sets.includes(activeSet) ? files.filter((f) => f.category === activeSet) : files;
+  const inSet = activeSet && sets.includes(activeSet) ? files.filter((f) => f.category === activeSet) : files;
+  const visible = statusFilter === "all" ? inSet : inSet.filter((f) => f.status === statusFilter);
+  const pendingInSet = inSet.filter((f) => f.status === "pending");
+  // A review can drop the open file out of a status filter ("To review"): the next
+  // file slides into its place, and after the last one the viewer closes.
+  const openIndex = lightboxIndex !== null && lightboxIndex < visible.length ? lightboxIndex : null;
 
   const paymentDue = room.paymentStatus === "due";
   const downloadable = files.filter((f) => f.canDownload).length;
   const reviewed = stats.approved + stats.changes;
   const canSubmit = !!viewer && !preview && !readOnly && files.length > 0;
   const showFeedbackBar = canSubmit && (changedSinceSend > 0 || (!sentAt && reviewed > 0));
+  const due = room.reviewBy && files.length > 0 ? reviewByLabel(room.reviewBy) : null;
+  const allReviewed = files.length > 0 && stats.pending === 0;
+
+  /** Approves every file in view that nobody has reviewed yet. */
+  async function approveRest() {
+    if (approvingRest) return;
+    const ids = pendingInSet.map((f) => f.id);
+    if (ids.length === 0) return;
+    setApprovingRest(true);
+    const res = await approveRemaining({ slug: room.slug, fileIds: ids }).catch(() => ({
+      ok: false as const,
+      error: "Connection lost. Please try again.",
+    }));
+    setApprovingRest(false);
+    setConfirmRest(false);
+    if (!res.ok) {
+      setToast(res.error);
+      return;
+    }
+    const done = new Set(res.data?.approved ?? []);
+    setFiles((prev) =>
+      prev.map((f) =>
+        done.has(f.id) ? { ...f, status: "approved", reviewedBy: viewer?.name ?? null, canDownload: downloadableAs("approved") } : f,
+      ),
+    );
+    if (done.size > 0) {
+      setChangedSinceSend((n) => n + done.size);
+      setToast(`Approved ${done.size} ${done.size === 1 ? "file" : "files"}.`);
+    }
+  }
 
   async function sendFeedback() {
     if (sending) return;
@@ -192,6 +253,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
     if (i >= 0) setLightboxIndex(i);
     else {
       setActiveSet(null);
+      setStatusFilter("all");
       setLightboxIndex(files.findIndex((f) => f.id === file.id));
     }
   }
@@ -302,6 +364,27 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
             {room.intro && (
               <p className="mt-5 max-w-xl whitespace-pre-wrap text-[15px] leading-relaxed text-room-muted">{room.intro}</p>
+            )}
+
+            {due && (
+              <p
+                className={`mt-5 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 font-typewriter text-xs ${
+                  allReviewed ? "border-room-border text-room-muted" : "border-room-accent/50 text-room-fg"
+                }`}
+                suppressHydrationWarning
+              >
+                <CalendarClock className="size-3.5 shrink-0" />
+                {allReviewed ? (
+                  <>All reviewed. Thank you!</>
+                ) : due.past ? (
+                  <>Feedback was due {due.date}</>
+                ) : (
+                  <>
+                    Please review by <span className="font-bold">{due.date}</span>
+                    {due.when && <span className="text-room-muted">({due.when})</span>}
+                  </>
+                )}
+              </p>
             )}
 
             {files.length > 0 && paymentDue ? (
@@ -415,7 +498,11 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                     type="button"
                     role="tab"
                     aria-selected={active}
-                    onClick={() => setActiveSet(name)}
+                    onClick={() => {
+                      setActiveSet(name);
+                      setConfirmRest(false);
+                      setLightboxIndex(null);
+                    }}
                     className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
                       active
                         ? "border-room-accent bg-room-accent text-room-accent-fg"
@@ -429,10 +516,88 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             </div>
           )}
 
+          {files.length > 1 && (
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="-mx-5 flex items-center gap-1.5 overflow-x-auto px-5 sm:mx-0 sm:px-0" role="group" aria-label="Show only">
+                <span className="shrink-0 pr-1 font-typewriter text-xs text-room-muted">Show</span>
+                {FILTERS.map((f) => {
+                  const count = inSet.filter((x) => x.status === f.key).length;
+                  if (count === 0 && statusFilter !== f.key) return null;
+                  const active = statusFilter === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setLightboxIndex(null);
+                        setStatusFilter(active ? "all" : f.key);
+                      }}
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-typewriter text-xs transition-colors ${
+                        active
+                          ? "border border-room-fg/40 bg-white/15 text-room-fg"
+                          : "border border-transparent text-room-muted hover:bg-white/5 hover:text-room-fg"
+                      }`}
+                    >
+                      <span aria-hidden className={`size-1.5 rounded-full ${f.dot}`} />
+                      {f.label} <span className="tabular-nums opacity-70">{count}</span>
+                      {active && <X aria-hidden className="size-3 opacity-70" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {canSubmit && pendingInSet.length > 1 && (
+                <div className="flex items-center gap-2 sm:shrink-0">
+                  {confirmRest ? (
+                    <>
+                      <span className="min-w-0 flex-1 font-typewriter text-xs text-room-muted sm:flex-none">
+                        Approve {pendingInSet.length} files?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRest(false)}
+                        className="rounded-full px-3 py-2 text-sm font-semibold text-room-muted hover:text-room-fg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={approveRest}
+                        disabled={approvingRest}
+                        className="inline-flex items-center gap-2 rounded-full bg-approve px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                      >
+                        <Check className="size-4" />
+                        {approvingRest ? "Approving…" : "Yes, approve"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRest(true)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-room-border bg-white/5 px-4 py-2 text-sm font-semibold hover:bg-white/10 sm:w-auto"
+                    >
+                      <CheckCheck className="size-4 text-approve" />
+                      Approve the rest{activeSet && sets.includes(activeSet) ? ` of ${activeSet}` : ""}
+                      <span className="font-typewriter text-xs text-room-muted">{pendingInSet.length}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {files.length === 0 ? (
             <p className="py-16 text-center font-typewriter text-sm text-room-muted">
               Nothing here yet. We will let you know when your files are ready.
             </p>
+          ) : visible.length === 0 ? (
+            <div className="py-16 text-center font-typewriter text-sm text-room-muted">
+              <p>{statusFilter === "pending" ? "You have reviewed everything here." : "Nothing here."}</p>
+              <button type="button" onClick={() => { setLightboxIndex(null); setStatusFilter("all"); }} className="mt-3 text-room-fg underline underline-offset-4">
+                Show all files
+              </button>
+            </div>
           ) : (
             <ul
               className={
@@ -465,7 +630,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
 
       <Lightbox
         files={visible}
-        index={lightboxIndex}
+        index={openIndex}
         slug={room.slug}
         onIndex={(i) => {
           setStartAt(null);
@@ -476,6 +641,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
         startAt={startAt}
         watermark={watermark}
         alwaysDownload={!!adminRoomId}
+        paused={!!sheetFile}
       />
 
       <CommentSheet
@@ -493,7 +659,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
       />
 
       <AnimatePresence>
-        {showFeedbackBar && lightboxIndex === null && !sheetFile && (
+        {showFeedbackBar && openIndex === null && !sheetFile && (
           <motion.div
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -555,7 +721,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             exit={{ opacity: 0, y: 20 }}
             // Sits above the "Send feedback" bar while it is showing, so neither hides the other.
             className={`fixed inset-x-0 z-[60] mx-auto w-fit max-w-[90vw] rounded-full bg-white px-5 py-3 text-center text-sm font-semibold text-black shadow-xl ${
-              showFeedbackBar && lightboxIndex === null && !sheetFile
+              showFeedbackBar && openIndex === null && !sheetFile
                 ? "bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
                 : "bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
             }`}

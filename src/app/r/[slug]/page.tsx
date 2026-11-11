@@ -71,6 +71,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
     paymentUrl: room.payment_url ?? null,
     paymentStatus: room.payment_status ?? "none",
     feedbackSentAt: room.feedback_sent_at ?? null,
+    reviewBy: room.review_by ?? null,
   };
   const brandProps = { name: studio.name, mark: studio.markOnDark, poweredByLabel: studio.poweredByLabel };
 

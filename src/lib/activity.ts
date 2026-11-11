@@ -10,19 +10,23 @@ export type ActivityItem = {
   roomId: string;
   roomTitle: string;
   fileName: string | null;
+  /** Set when one action covered several files ("approved 8 files"). */
+  count: number | null;
 };
 
 /** What clients did, newest first. Views are left out so the feed stays useful. */
 export async function listActivity(limit = 60, opts: { includeViews?: boolean } = {}): Promise<ActivityItem[]> {
-  let q = supabaseAdmin()
-    .from("activity")
-    .select("id, type, actor_name, created_at, room_id, rooms(title), files(file_name)")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (!opts.includeViews) q = q.neq("type", "view").neq("type", "reset");
-  const { data } = await q;
+  const query = (columns: string) => {
+    let q = supabaseAdmin().from("activity").select(columns).order("created_at", { ascending: false }).limit(limit);
+    if (!opts.includeViews) q = q.neq("type", "view").neq("type", "reset");
+    return q;
+  };
+  const base = "id, type, actor_name, created_at, room_id, rooms(title), files(file_name)";
+  let { data, error } = await query(`${base}, meta`);
+  // Databases without the activity.meta column (migration 0007) still get their feed.
+  if (error) ({ data, error } = await query(base));
   const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
-  return (data ?? []).map((a) => ({
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((a) => ({
     id: a.id as string,
     type: a.type as ActivityItem["type"],
     actor: (a.actor_name as string | null) ?? null,
@@ -30,6 +34,7 @@ export async function listActivity(limit = 60, opts: { includeViews?: boolean } 
     roomId: a.room_id as string,
     roomTitle: one(a.rooms as { title: string } | { title: string }[] | null)?.title ?? "A room",
     fileName: one(a.files as { file_name: string } | { file_name: string }[] | null)?.file_name ?? null,
+    count: Number((a.meta as { count?: number } | null)?.count) > 1 ? Number((a.meta as { count: number }).count) : null,
   }));
 }
 
@@ -66,7 +71,7 @@ export function describe(a: ActivityItem): string {
   const file = a.fileName ? ` ${a.fileName}` : " a file";
   switch (a.type) {
     case "approve":
-      return `${who} approved${file}`;
+      return a.count ? `${who} approved ${a.count} files at once` : `${who} approved${file}`;
     case "decline":
       return `${who} asked for changes on${file}`;
     case "comment":

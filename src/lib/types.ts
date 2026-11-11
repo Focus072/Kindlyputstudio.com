@@ -11,6 +11,8 @@ export type RoomRow = {
   accent_color: string | null;
   status: "draft" | "live" | "archived";
   expires_at: string | null;
+  /** Day the studio would like feedback by (YYYY-MM-DD). */
+  review_by?: string | null;
   /** Feature this room in the public "Recent work" section of the home page. */
   showcase: boolean;
   /** "link": anyone signed in with the link. "invited": only emails on the guest list. */

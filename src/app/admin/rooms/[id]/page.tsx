@@ -16,6 +16,8 @@ import { RoomAccess } from "@/components/admin/RoomAccess";
 import { listAccessRequests, listInvites } from "@/lib/access";
 import { ShareLinks } from "@/components/admin/ShareLinks";
 import { listShareLinks } from "@/lib/share-links";
+import { FollowUp } from "@/components/admin/FollowUp";
+import { formatReviewBy } from "@/lib/review-date";
 
 export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/[id]">) {
   await requireAdmin();
@@ -65,6 +67,18 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
           ))}
         </dl>
       </div>
+
+      <FollowUp
+        roomId={room.id}
+        slug={room.slug}
+        title={room.title}
+        clientName={room.client_name}
+        deliveredBy={room.delivered_by}
+        total={files.length}
+        pending={stats.pending}
+        changes={stats.changes}
+        reviewBy={formatReviewBy(room.review_by)}
+      />
 
       {room.feedback_sent_at && (
         <p className="rounded-2xl bg-approve/10 px-4 py-3 text-sm font-semibold text-approve ring-1 ring-approve/30">
