@@ -80,6 +80,8 @@ export function Comments({
   const [pending, start] = useTransition();
   const all = [...comments, ...mine.filter((m) => !comments.some((c) => c.id === m.id))];
   const needsName = role === "client" && !name.trim();
+  const [askName, setAskName] = useState(false);
+  if (needsName && !askName) setAskName(true);
 
   function send() {
     const body = text.trim();
@@ -113,7 +115,7 @@ export function Comments({
         ))}
       </ul>
       <div className="mt-3 space-y-2">
-        {needsName && <NameField value={name} onChange={setName} />}
+        {askName && <NameField value={name} onChange={setName} />}
         <div className="flex items-end gap-2">
           <textarea
             value={text}
@@ -121,16 +123,21 @@ export function Comments({
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
             }}
-            rows={2}
+            rows={1}
+            onInput={(e) => {
+              const t = e.currentTarget;
+              t.style.height = "auto";
+              t.style.height = `${Math.min(t.scrollHeight, 160)}px`;
+            }}
             maxLength={2000}
             placeholder="Write a comment"
-            className="min-h-11 flex-1 resize-none rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-base text-ink outline-none focus:border-slate-brand sm:text-sm"
+            className="min-h-12 flex-1 resize-none rounded-3xl border border-slate-200 bg-white px-4 py-3 text-base text-ink outline-none focus:border-slate-brand sm:text-sm"
           />
           <button
             onClick={send}
             disabled={pending || !text.trim() || needsName}
             aria-label="Send comment"
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-ink text-white hover:bg-slate-brand disabled:opacity-40"
+            className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-white hover:bg-slate-brand disabled:opacity-40"
           >
             <Send className="size-4" />
           </button>

@@ -70,7 +70,11 @@ export function ClientPlan({
 
   return (
     <div>
-      <div role="tablist" aria-label="Sections" className="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
+      <div
+        role="tablist"
+        aria-label="Sections"
+        className={`grid grid-cols-2 rounded-full bg-white/95 p-1 shadow-sm ring-1 ring-slate-200 backdrop-blur sm:inline-grid ${role === "client" ? "sticky top-[max(0.5rem,env(safe-area-inset-top))] z-30 sm:static" : ""}`}
+      >
         <TabButton active={tab === "calendar"} onClick={() => pick("calendar")} icon={<CalendarDays className="size-4" />} label="Calendar" />
         <TabButton active={tab === "ideas"} onClick={() => pick("ideas")} icon={<Lightbulb className="size-4" />} label="Ideas" count={open} />
       </div>
@@ -91,7 +95,7 @@ function TabButton({ active, onClick, icon, label, count }: { active: boolean; o
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition ${active ? "bg-ink text-white" : "text-slate-600 hover:text-ink"}`}
+      className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition sm:h-10 ${active ? "bg-ink text-white" : "text-slate-600 hover:text-ink"}`}
     >
       {icon} {label}
       {!!count && <span className={`rounded-full px-1.5 text-[11px] leading-5 ${active ? "bg-white/15" : "bg-slate-100"}`}>{count}</span>}

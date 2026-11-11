@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, ExternalLink, MessageCircle, Play } from "lucide-react";
 import type { Ctx } from "@/app/cal/actions";
 import { ChannelAvatar, PlatformIcon } from "@/components/admin/calendar/PlatformIcon";
@@ -103,11 +103,11 @@ export function PostsCalendar({
   return (
     <div>
       {/* Month switcher */}
-      <div className="flex items-center gap-1 rounded-3xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+      <div className="flex items-center gap-1 rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-200 sm:rounded-3xl sm:p-2">
         <Link href={hrefFor(prev)} scroll={false} aria-label="Previous month" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100">
           <ChevronLeft className="size-5" />
         </Link>
-        <p className="min-w-0 flex-1 truncate px-1 font-display text-2xl uppercase leading-none text-ink sm:text-3xl">{monthLabel(month)}</p>
+        <p className="min-w-0 flex-1 truncate px-1 text-center font-display text-2xl uppercase leading-none text-ink sm:text-left sm:text-3xl">{monthLabel(month)}</p>
         {!today.startsWith(month) && (
           <Link href={hrefFor(today.slice(0, 7))} scroll={false} className="inline-flex h-9 shrink-0 items-center rounded-full border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:border-ink hover:text-ink">
             Today
@@ -118,11 +118,33 @@ export function PostsCalendar({
         </Link>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+      {/* Phone: one summary card and a swipeable strip of days */}
+      <div className="mt-3 sm:hidden">
+        <div className="grid grid-cols-[1fr_1fr_1.6fr] divide-x divide-slate-100 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+          <div className="px-3 py-2.5">
+            <span className="font-display text-[28px] leading-none text-ink">{scheduled}</span>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Scheduled</span>
+          </div>
+          <div className="px-3 py-2.5">
+            <span className="font-display text-[28px] leading-none text-ink">{posted}</span>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Posted</span>
+          </div>
+          <button onClick={() => next && setOpen(next)} disabled={!next} className="flex min-w-0 items-center gap-2 px-3 py-2.5 text-left">
+            {next && <Thumb post={next} className="size-9 rounded-lg" />}
+            <span className="min-w-0">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Next up</span>
+              <span className="block truncate text-sm font-bold text-ink">{next ? relativeLabel(next.at, now) : "Nothing yet"}</span>
+            </span>
+          </button>
+        </div>
+        <DayStrip month={month} today={today} byDay={byDay} onPick={jump} />
+      </div>
+
+      <div className="mt-3 hidden grid-cols-3 gap-3 sm:grid">
         <Stat label="Scheduled" value={scheduled} />
         <Stat label="Posted" value={posted} />
         {next ? (
-          <button onClick={() => setOpen(next)} className="col-span-2 flex min-w-0 items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 hover:ring-slate-brand sm:col-span-1">
+          <button onClick={() => setOpen(next)} className="flex min-w-0 items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 hover:ring-slate-brand">
             <Thumb post={next} className="size-11" />
             <span className="min-w-0">
               <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -133,7 +155,7 @@ export function PostsCalendar({
             </span>
           </button>
         ) : (
-          <div className="col-span-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:col-span-1">
+          <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
             <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               <Clock className="size-3.5" /> Next up
             </span>
@@ -196,21 +218,22 @@ export function PostsCalendar({
             </div>
           )}
           {days.map((d) => (
-            <div key={d} id={`day-${d}`} className="scroll-mt-4">
-              <h3 className={`mb-2 flex items-baseline gap-2 text-sm font-bold ${d === today ? "text-ink" : "text-slate-500"}`}>
+            <div key={d} id={`day-${d}`} className="scroll-mt-20 sm:scroll-mt-4">
+              <h3 className={`mb-2 flex items-center gap-2 text-sm font-bold ${d === today ? "text-ink" : "text-slate-500"}`}>
                 {dayLabel(d)}
                 {d === today && <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] uppercase text-white">Today</span>}
               </h3>
               <div className="space-y-2">
                 {(byDay.get(d) ?? []).map((p) => (
                   <button key={p.id} onClick={() => setOpen(p)} className="flex w-full gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-brand" style={{ boxShadow: `inset 3px 0 0 ${color}` }}>
-                    <Thumb post={p} className="size-16" />
+                    <Thumb post={p} className="size-[72px] sm:size-16" />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-500">
                           <PlatformIcon service={p.platform} className="size-3.5 shrink-0" />
                           <span className="truncate">
-                            {typeLabel(p)} · {timeLabel(p.at)}
+                            <span className="font-bold text-ink sm:font-semibold sm:text-slate-500">{timeLabel(p.at)}</span>
+                            <span className="hidden min-[400px]:inline"> · {typeLabel(p)}</span>
                           </span>
                         </span>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS_STYLE[p.status].cls}`}>{STATUS_STYLE[p.status].label}</span>
@@ -243,19 +266,7 @@ export function PostsCalendar({
             </span>
             <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS_STYLE[open.status].cls}`}>{STATUS_STYLE[open.status].label}</span>
           </div>
-          {open.media.length > 0 && (
-            <div className="-mx-5 mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5">
-              {open.media.map((m, i) => (
-                <div key={i} className={`relative shrink-0 snap-center overflow-hidden rounded-2xl bg-slate-100 ${open.media.length > 1 ? "w-[85%]" : "w-full"}`}>
-                  {m.isVideo ? (
-                    <video src={m.url} poster={m.thumb ?? undefined} controls playsInline preload="metadata" className="max-h-[60dvh] w-full bg-black object-contain" />
-                  ) : (
-                    <img src={m.url} alt={m.alt ?? ""} className="max-h-[60dvh] w-full object-contain" />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          {open.media.length > 0 && <MediaCarousel media={open.media} />}
           {open.caption && <p className="mt-4 whitespace-pre-wrap break-words text-sm text-slate-700">{open.caption}</p>}
           {open.link && (
             <a href={open.link} target="_blank" rel="noreferrer noopener" className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-ink hover:text-ink">
@@ -264,6 +275,78 @@ export function PostsCalendar({
           )}
           <Comments ctx={ctx} role={role} target={{ postKey: open.id }} comments={comments.filter((c) => c.postKey === open.id)} studioName={studioName} />
         </Sheet>
+      )}
+    </div>
+  );
+}
+
+/** A swipeable row of the month's days with a dot per post (phones). */
+function DayStrip({ month, today, byDay, onPick }: { month: string; today: string; byDay: Map<string, ClientPost[]>; onPick: (d: string) => void }) {
+  const days = monthGrid(month).flat().filter((d) => d.startsWith(month));
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[data-today="1"]') ?? ref.current?.querySelector<HTMLElement>('[data-has="1"]');
+    const box = ref.current;
+    if (el && box) box.scrollLeft += el.getBoundingClientRect().left - box.getBoundingClientRect().left - 16 - 2 * 52;
+  }, [month]);
+  return (
+    <div ref={ref} className="-mx-4 mt-3 flex snap-x gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" aria-label="Days">
+      {days.map((d) => {
+        const list = byDay.get(d) ?? [];
+        const isToday = d === today;
+        return (
+          <button
+            key={d}
+            data-today={isToday ? "1" : undefined}
+            data-has={list.length ? "1" : undefined}
+            onClick={() => list.length && onPick(d)}
+            aria-label={`${dayLabel(d)}${list.length ? `, ${list.length} post${list.length === 1 ? "" : "s"}` : ""}`}
+            className={`flex h-[64px] w-[46px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-2xl ${
+              isToday ? "bg-ink text-white" : list.length ? "bg-white text-ink shadow-sm ring-1 ring-slate-200" : "text-slate-400"
+            }`}
+          >
+            <span className={`text-[10px] font-semibold uppercase ${isToday ? "text-mist" : ""}`}>{dayLabel(d, { weekday: "narrow" })}</span>
+            <span className="text-base font-bold leading-none">{Number(d.slice(8))}</span>
+            <span className="flex h-1.5 gap-0.5">
+              {list.slice(0, 3).map((p) => (
+                <span key={p.id} className={`size-1.5 rounded-full ${p.status === "posted" ? "bg-[#6e8f72]" : isToday ? "bg-steel" : "bg-slate-brand"}`} />
+              ))}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Swipeable photos with dots, like the post will look. */
+function MediaCarousel({ media }: { media: ClientPost["media"] }) {
+  const [i, setI] = useState(0);
+  return (
+    <div className="-mx-5 mt-4 sm:mx-0">
+      <div
+        className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] sm:rounded-2xl"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setI(Math.round(el.scrollLeft / el.clientWidth));
+        }}
+      >
+        {media.map((m, k) => (
+          <div key={k} className="w-full shrink-0 snap-center bg-slate-100">
+            {m.isVideo ? (
+              <video src={m.url} poster={m.thumb ?? undefined} controls playsInline preload="metadata" className="aspect-[4/5] max-h-[62dvh] w-full bg-black object-contain" />
+            ) : (
+              <img src={m.url} alt={m.alt ?? ""} className="aspect-[4/5] max-h-[62dvh] w-full object-cover" />
+            )}
+          </div>
+        ))}
+      </div>
+      {media.length > 1 && (
+        <div className="mt-2 flex justify-center gap-1.5" aria-hidden>
+          {media.map((_, k) => (
+            <span key={k} className={`size-1.5 rounded-full transition ${k === i ? "bg-ink" : "bg-slate-300"}`} />
+          ))}
+        </div>
       )}
     </div>
   );

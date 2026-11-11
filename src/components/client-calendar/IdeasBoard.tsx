@@ -48,6 +48,8 @@ export function IdeasBoard({
 }) {
   const [open, setOpen] = useState<Idea | "new" | null>(() => (openId ? (ideas.find((i) => i.id === openId) ?? null) : null));
   const [showArchived, setShowArchived] = useState(false);
+  // Phones show one column at a time, picked from the pills.
+  const [col, setCol] = useState<string>("new");
   const archived = ideas.filter((i) => i.status === "archived");
 
   // Keep an open idea in sync after a refresh.
@@ -67,7 +69,7 @@ export function IdeasBoard({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-xl text-sm text-slate-500">
+        <p className="max-w-xl text-[15px] leading-relaxed text-slate-500 sm:text-sm">
           {role === "client"
             ? `A shared space for post ideas. Add anything you'd like to see, and ${studioName} will plan it, make it and put it on the calendar.`
             : "Ideas from you and the client. Move them along as they get made, then schedule them straight into Buffer."}
@@ -75,27 +77,56 @@ export function IdeasBoard({
         <button
           onClick={() => setOpen("new")}
           disabled={!ready}
-          className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40"
+          className={`h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40 md:inline-flex ${role === "client" ? "hidden" : "inline-flex"}`}
         >
           <Plus className="size-4" strokeWidth={2.5} /> Add an idea
         </button>
+        {/* Phones (client link): a floating button that stays under the thumb. */}
+        {role === "client" && (
+          <button
+            onClick={() => setOpen("new")}
+            disabled={!ready}
+            className="fixed bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] right-4 z-40 inline-flex h-14 items-center gap-2 rounded-full bg-ink pl-5 pr-6 text-base font-semibold text-white shadow-[0_10px_30px_-8px_rgba(29,43,50,0.6)] active:scale-95 disabled:opacity-40 md:hidden"
+          >
+            <Plus className="size-5" strokeWidth={2.5} /> Idea
+          </button>
+        )}
       </div>
 
       {!ready && <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">The ideas board isn&rsquo;t set up yet.</p>}
 
-      <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-4">
-        {columns.map((col) => (
-          <section key={col.id} aria-label={col.label} className="w-[82vw] max-w-sm shrink-0 snap-start rounded-3xl bg-slate-100/80 p-2.5 md:w-auto md:max-w-none">
-            <header className="flex items-center justify-between px-2 pb-2 pt-1">
+      {/* Phones: column pills */}
+      <div className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:hidden" role="tablist" aria-label="Idea stages">
+        {columns.map((c) => (
+          <button
+            key={c.id}
+            role="tab"
+            aria-selected={col === c.id}
+            onClick={() => setCol(c.id)}
+            className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold ${col === c.id ? "bg-ink text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+          >
+            <span className="size-2 rounded-full" style={{ background: COLUMN_TONE[c.id] }} />
+            {c.label}
+            <span className={`text-xs ${col === c.id ? "text-mist" : "text-slate-400"}`}>{c.items.length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 md:mt-5 md:grid md:grid-cols-2 md:gap-3 xl:grid-cols-4">
+        {columns.map((c) => (
+          <section key={c.id} aria-label={c.label} className={`${col === c.id ? "block" : "hidden"} md:block md:rounded-3xl md:bg-slate-100/80 md:p-2.5`}>
+            <header className="hidden items-center justify-between px-2 pb-2 pt-1 md:flex">
               <span className="flex items-center gap-2">
-                <span className="size-2.5 rounded-full" style={{ background: COLUMN_TONE[col.id] }} />
-                <span className="font-display text-xl uppercase leading-none text-ink">{col.label}</span>
-                <span className="text-xs font-semibold text-slate-400">{col.items.length}</span>
+                <span className="size-2.5 rounded-full" style={{ background: COLUMN_TONE[c.id] }} />
+                <span className="font-display text-xl uppercase leading-none text-ink">{c.label}</span>
+                <span className="text-xs font-semibold text-slate-400">{c.items.length}</span>
               </span>
             </header>
-            <div className="space-y-2">
-              {col.items.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 px-3 py-4 text-center text-xs text-slate-400">{col.hint}</p>}
-              {col.items.map((idea) => (
+            <div className="space-y-2.5 md:space-y-2">
+              {c.items.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-slate-300 px-3 py-8 text-center text-sm text-slate-400 md:py-4 md:text-xs">{c.hint}</p>
+              )}
+              {c.items.map((idea) => (
                 <IdeaCard key={idea.id} idea={idea} onOpen={() => setOpen(idea)} />
               ))}
             </div>
@@ -137,8 +168,11 @@ export function IdeasBoard({
 function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
   const p = idea.platform ? platformInfo(idea.platform) : null;
   return (
-    <button onClick={onOpen} className="block w-full rounded-2xl bg-white p-3.5 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-brand">
-      <p className="text-sm font-bold leading-snug text-ink">{idea.title}</p>
+    <button
+      onClick={onOpen}
+      className="block w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-brand active:scale-[0.99] md:p-3.5"
+    >
+      <p className="text-base font-bold leading-snug text-ink md:text-sm">{idea.title}</p>
       {idea.body && <p className="mt-1 line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-600">{idea.body}</p>}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
         {p && (
@@ -148,7 +182,11 @@ function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
         )}
         {idea.scheduledAt ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5">
-            <CalendarClock className="size-3" /> {new Date(idea.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            <CalendarClock className="size-3" />{" "}
+            {new Date(idea.scheduledAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
           </span>
         ) : (
           idea.targetDate && (
@@ -163,7 +201,9 @@ function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
             <MessageCircle className="size-3" /> {idea.comments.length}
           </span>
         )}
-        <span className="ml-auto truncate font-normal text-slate-400">{idea.authorRole === "studio" ? `${idea.authorName ?? "Studio"} · Studio` : (idea.authorName ?? "Client")}</span>
+        <span className="ml-auto truncate font-normal text-slate-400">
+          {idea.authorRole === "studio" ? `${idea.authorName ?? "Studio"} · Studio` : (idea.authorName ?? "Client")}
+        </span>
       </div>
     </button>
   );
@@ -207,6 +247,8 @@ function IdeaSheet({
     form.platform !== (idea.platform ?? "") ||
     form.targetDate !== (idea.targetDate ?? "");
   const needsName = role === "client" && !idea && !name.trim();
+  // Keep the name box on screen while they type, once it was needed.
+  const [askName] = useState(needsName);
   const canDelete = idea && (role === "studio" || idea.authorRole === "client");
 
   function save() {
@@ -249,25 +291,48 @@ function IdeaSheet({
       footer={
         <div className="flex items-center gap-2">
           {canDelete && (
-            <button onClick={remove} disabled={pending} aria-label="Delete idea" className="inline-flex size-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-[#9a4a3c] hover:text-[#9a4a3c]">
+            <button
+              onClick={remove}
+              disabled={pending}
+              aria-label="Delete idea"
+              className="inline-flex size-12 items-center sm:size-11 justify-center rounded-full border border-slate-200 text-slate-500 hover:border-[#9a4a3c] hover:text-[#9a4a3c]"
+            >
               <Trash2 className="size-4" />
             </button>
           )}
           {role === "studio" && idea && onSchedule && idea.status !== "scheduled" && idea.status !== "done" && (
             <button
-              onClick={() => onSchedule({ ...idea, ...form, body: form.body ?? "", link: form.link || null, platform: form.platform || null, targetDate: form.targetDate || null } as Idea)}
+              onClick={() =>
+                onSchedule({
+                  ...idea,
+                  ...form,
+                  body: form.body ?? "",
+                  link: form.link || null,
+                  platform: form.platform || null,
+                  targetDate: form.targetDate || null,
+                } as Idea)
+              }
               className="inline-flex h-11 items-center gap-1.5 rounded-full border border-slate-200 px-4 text-sm font-semibold text-ink hover:border-ink"
             >
               <CalendarPlus className="size-4" /> Schedule it
             </button>
           )}
-          <button
-            onClick={save}
-            disabled={pending || !form.title.trim() || !dirty || needsName}
-            className="ml-auto inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40"
-          >
-            {saved ? "Saved" : pending ? "Saving…" : idea ? "Save" : "Add idea"}
-          </button>
+          {idea && !dirty && !saved ? (
+            <button
+              onClick={onClose}
+              className="ml-auto inline-flex h-12 items-center rounded-full bg-slate-100 px-6 text-sm font-semibold text-ink hover:bg-slate-200 sm:h-11"
+            >
+              Done
+            </button>
+          ) : (
+            <button
+              onClick={save}
+              disabled={pending || !form.title.trim() || needsName}
+              className="ml-auto inline-flex h-12 items-center rounded-full bg-ink px-6 text-sm font-semibold text-white hover:bg-slate-brand disabled:opacity-40 sm:h-11"
+            >
+              {saved ? "Saved" : pending ? "Saving…" : idea ? "Save changes" : "Add idea"}
+            </button>
+          )}
         </div>
       }
     >
@@ -278,14 +343,14 @@ function IdeaSheet({
         </p>
       )}
       {idea && role === "studio" && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <div className="-mx-5 mb-4 flex items-center gap-1.5 overflow-x-auto px-5 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
           {(["new", "planned", "scheduled", "done"] as IdeaStatus[]).map((s) => (
             <button
               key={s}
               onClick={() => move(s)}
               disabled={pending}
               aria-pressed={idea.status === s}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${idea.status === s ? "bg-ink text-white" : "border border-slate-200 text-slate-600 hover:border-ink hover:text-ink"}`}
+              className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold ${idea.status === s ? "bg-ink text-white" : "border border-slate-200 text-slate-600 hover:border-ink hover:text-ink"}`}
             >
               {IDEA_STATUS_LABEL[s]}
             </button>
@@ -293,7 +358,7 @@ function IdeaSheet({
           <button
             onClick={() => move(idea.status === "archived" ? "new" : "archived")}
             disabled={pending}
-            className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-semibold text-slate-500 hover:text-ink"
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-2 text-xs font-semibold text-slate-500 hover:text-ink"
           >
             <Archive className="size-3.5" /> {idea.status === "archived" ? "Restore" : "Archive"}
           </button>
@@ -301,14 +366,21 @@ function IdeaSheet({
       )}
 
       <div className="space-y-3">
-        {needsName && <NameField value={name} onChange={setName} />}
+        {(askName || needsName) && <NameField value={name} onChange={setName} />}
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">Idea</span>
           <input value={form.title} onChange={set("title")} maxLength={140} placeholder="e.g. Behind the scenes of the new menu" className={field} autoFocus={!idea} />
         </label>
         <label className="block">
           <span className="text-xs font-semibold text-slate-500">Details</span>
-          <textarea value={form.body} onChange={set("body")} rows={4} maxLength={4000} placeholder="What should it show or say? Caption ideas, people, products, timing…" className={`${field} resize-y`} />
+          <textarea
+            value={form.body}
+            onChange={set("body")}
+            rows={4}
+            maxLength={4000}
+            placeholder="What should it show or say? Caption ideas, people, products, timing…"
+            className={`${field} resize-y`}
+          />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
@@ -335,7 +407,12 @@ function IdeaSheet({
           <input value={form.link} onChange={set("link")} inputMode="url" maxLength={600} placeholder="A post, reel or page you like (optional)" className={field} />
         </label>
         {idea?.link && (
-          <a href={idea.link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-brand underline underline-offset-2">
+          <a
+            href={idea.link}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-slate-brand underline underline-offset-2"
+          >
             <ExternalLink className="size-3.5" /> Open reference
           </a>
         )}
@@ -344,7 +421,10 @@ function IdeaSheet({
           <p className="flex items-center gap-1.5 text-xs text-slate-400">
             <Lightbulb className="size-3.5" />
             Added by {idea.authorRole === "studio" ? `${idea.authorName ?? studioName} (studio)` : (idea.authorName ?? "the client")} on{" "}
-            {new Date(idea.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            {new Date(idea.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
           </p>
         )}
       </div>

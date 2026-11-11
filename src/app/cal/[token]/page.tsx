@@ -35,22 +35,25 @@ export default async function SharedCalendarPage({ params, searchParams }: PageP
 
   return (
     <div className="min-h-dvh bg-[#eef0f1]">
-      <header className="bg-ink text-white">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 sm:pb-10">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-mist/80">
-              <img src={studio.markOnDark} alt="" className="h-6 w-auto" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em]">{studio.name}</span>
+      <header className="relative overflow-hidden bg-ink text-white">
+        {/* Soft brand glow, kept quiet. */}
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full opacity-25 blur-3xl" style={{ background: client.color }} />
+        <div className="relative mx-auto max-w-6xl px-4 pb-9 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-12 sm:pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 text-mist/80">
+              <img src={studio.markOnDark} alt="" className="h-5 w-auto sm:h-6" />
+              <span className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] sm:text-xs">{studio.name}</span>
             </div>
-            <h1 className="mt-4 font-display text-5xl uppercase leading-[0.9] sm:text-7xl">Content calendar</h1>
-            <p className="mt-2 flex items-center gap-2 text-sm text-mist">
-              <span className="size-2.5 rounded-full ring-2 ring-white/20" style={{ background: client.color }} />
-              Prepared for <span className="font-semibold text-white">{client.name}</span>
-            </p>
           </div>
+          <p className="mt-6 font-typewriter text-sm text-mist/80 sm:mt-8">What&rsquo;s going out</p>
+          <h1 className="font-display text-[44px] uppercase leading-[0.9] sm:text-7xl">Content calendar</h1>
+          <p className="mt-2 flex items-center gap-2 text-sm text-mist">
+            <span className="size-2 shrink-0 rounded-full ring-2 ring-white/15" style={{ background: client.color }} />
+            Prepared for <span className="font-semibold text-white">{client.name}</span>
+          </p>
         </div>
       </header>
-      <main className="mx-auto -mt-5 max-w-6xl px-4 pb-16 sm:px-6">
+      <main className="mx-auto -mt-6 max-w-6xl px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:pb-16 sm:px-6">
         <ClientPlan
           ctx={{ token }}
           role="client"
