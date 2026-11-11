@@ -19,6 +19,7 @@ async function hasChangesSince(roomId: string, since: string) {
     .gt("created_at", since);
   return (count ?? 0) > 0;
 }
+import { noteShareOpen, shareGuestFor } from "@/lib/share-links";
 import { previewUrl } from "@/lib/storage";
 import { RequestAccess } from "./RequestAccess";
 import { RoomClosed } from "./RoomClosed";
@@ -74,6 +75,27 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
   };
   const brandProps = { name: studio.name, mark: studio.markOnDark, poweredByLabel: studio.poweredByLabel };
 
+  // Share link (no account needed): a live link opens the full room, even for
+  // guest-list rooms. A signed-in client on the guest list keeps their own name.
+  const member = admin || (client ? await clientMayOpen(room, client) : false);
+  const guest = member ? null : await shareGuestFor(room);
+  if (guest) {
+    await noteShareOpen(guest.linkId);
+    const unsentChanges = room.feedback_sent_at ? await hasChangesSince(room.id, room.feedback_sent_at) : false;
+    const { files, stats, hero } = await loadRoomBundle(room);
+    return (
+      <RoomView
+        room={{ ...roomProps, unsentChanges }}
+        files={files}
+        heroId={hero?.id ?? null}
+        initialViews={stats.views}
+        brand={brandProps}
+        viewer={{ name: guest.name, avatarUrl: null, guest: true }}
+        readOnly={!guest.canReview}
+      />
+    );
+  }
+
   // Not signed in: show the room shell behind the create-account popup.
   // No files or download links are sent until the client has an account.
   if (!client && !admin) {
@@ -101,7 +123,7 @@ export default async function RoomPage({ params, searchParams }: PageProps<"/r/[
   }
 
   // Guest-list rooms: signed in, but not invited, so ask the studio.
-  if (client && !admin && !(await clientMayOpen(room, client))) {
+  if (client && !member) {
     await recordClientVisit(client);
     const status = await myAccessRequest(room.id, client.id);
     return <RequestAccess room={room} studio={studio} email={client.email} initialStatus={status} />;

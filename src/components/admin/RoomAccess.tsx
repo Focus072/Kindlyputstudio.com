@@ -38,7 +38,7 @@ export function RoomAccess({ roomId, mode, invites, requests }: Props) {
   return (
     <div className={`space-y-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-6 ${pending ? "opacity-70" : ""}`}>
       <div className="flex flex-col gap-2 sm:flex-row">
-        {option("link", Link2, "Anyone with the link", "They create a free account, then they are in.")}
+        {option("link", Link2, "Anyone with the link", "They create a free account, then they are in. Share links below skip the account.")}
         {option("invited", Lock, "Guest list only", "Only the emails below. Others can request access.")}
       </div>
 

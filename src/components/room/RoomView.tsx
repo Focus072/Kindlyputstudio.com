@@ -43,8 +43,10 @@ export type RoomViewProps = {
   preview?: boolean;
   /** Set when a studio admin is looking: shows a way back to the admin. */
   adminRoomId?: string | null;
-  /** Signed-in client, or null when nobody is signed in. */
-  viewer: { name: string; avatarUrl: string | null } | null;
+  /** Signed-in client (or a guest on a share link), or null when nobody is signed in. */
+  viewer: { name: string; avatarUrl: string | null; guest?: boolean } | null;
+  /** View-only share link: no approve, decline, or notes. */
+  readOnly?: boolean;
   /** When set, the room is locked behind the create-account popup. */
   gate?: {
     supabaseUrl: string;
@@ -95,7 +97,7 @@ function titleSize(headline: string) {
   return "text-[clamp(2.4rem,10vw,5rem)] lg:text-[clamp(2.75rem,4.4vw,5rem)]";
 }
 
-export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, gate }: RoomViewProps) {
+export function RoomView({ room, files: initialFiles, heroId, initialViews, brand, preview, adminRoomId, viewer, readOnly, gate }: RoomViewProps) {
   const [files, setFiles] = useState(initialFiles);
   const [sheetFileId, setSheetFileId] = useState<string | null>(null);
   const [sheetTimecode, setSheetTimecode] = useState<number | null>(null);
@@ -162,7 +164,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
   const paymentDue = room.paymentStatus === "due";
   const downloadable = files.filter((f) => f.canDownload).length;
   const reviewed = stats.approved + stats.changes;
-  const canSubmit = !!viewer && !preview && files.length > 0;
+  const canSubmit = !!viewer && !preview && !readOnly && files.length > 0;
   const showFeedbackBar = canSubmit && (changedSinceSend > 0 || (!sentAt && reviewed > 0));
   const due = room.reviewBy && files.length > 0 ? reviewByLabel(room.reviewBy) : null;
   const allReviewed = files.length > 0 && stats.pending === 0;
@@ -301,7 +303,18 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
             <span className="size-1.5 rounded-full bg-room-accent" />
             Powered by <span className="text-room-fg">{brand.poweredByLabel}</span>
           </span>
-          {viewer && (
+          {viewer?.guest && (
+            <span
+              title={readOnly ? "Opened with a view-only link" : "Opened with a share link. No account needed."}
+              className="inline-flex max-w-[11rem] items-center gap-2 rounded-full border border-room-border bg-white/5 py-1 pl-1 pr-3 text-xs font-semibold backdrop-blur-md sm:max-w-none"
+            >
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-room-accent text-room-accent-fg">
+                <UserRound className="size-3.5" />
+              </span>
+              <span className="truncate">{readOnly ? "View only" : viewer.name === "Guest" ? "Guest" : viewer.name}</span>
+            </span>
+          )}
+          {viewer && !viewer.guest && (
             <a
               href="/account"
               title="My rooms"
@@ -463,8 +476,12 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
               ) : (
                 <>
                   {files.length} {files.length === 1 ? "file" : "files"}
-                  <span className="hidden sm:inline pointer-fine:hidden"> · tap ✓ to approve</span>
-                  <span className="hidden sm:pointer-fine:inline"> · click ✓ to approve</span>
+                  {!readOnly && (
+                    <>
+                      <span className="hidden sm:inline pointer-fine:hidden"> · tap ✓ to approve</span>
+                      <span className="hidden sm:pointer-fine:inline"> · click ✓ to approve</span>
+                    </>
+                  )}
                 </>
               )}
             </p>
@@ -599,6 +616,7 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
                   onOpen={() => openFile(file)}
                   onReview={(status) => review(file, status)}
                   onComment={() => openComments(file)}
+                  readOnly={readOnly}
                 />
               ))}
             </ul>
@@ -618,8 +636,8 @@ export function RoomView({ room, files: initialFiles, heroId, initialViews, bran
           setStartAt(null);
           setLightboxIndex(i);
         }}
-        onReview={review}
-        onComment={openComments}
+        onReview={readOnly ? undefined : review}
+        onComment={readOnly ? undefined : openComments}
         startAt={startAt}
         watermark={watermark}
         alwaysDownload={!!adminRoomId}

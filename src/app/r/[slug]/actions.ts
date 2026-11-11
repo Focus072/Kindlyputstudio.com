@@ -5,19 +5,40 @@ import { getClientUser, type ClientUser } from "@/lib/client-auth";
 import { clientMayOpen } from "@/lib/access";
 import { getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { rateLimit } from "@/lib/rate-limit";
+import { shareGuestFor, type ShareGuest } from "@/lib/share-links";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { ReviewStatus } from "@/lib/types";
+import type { ReviewStatus, RoomRow } from "@/lib/types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
 
 const SIGN_IN = "Please sign in to your account first.";
+const VIEW_ONLY = "This link is view only. Ask the studio if you want to leave feedback.";
 
-/** The room, when it is live and this client is allowed in (or no client is given). */
-async function openRoom(slug: string, client?: ClientUser | null) {
+type Who =
+  | { kind: "client"; client: ClientUser; name: string }
+  | { kind: "admin"; name: string }
+  | { kind: "guest"; guest: ShareGuest; name: string };
+
+/**
+ * Who is acting in this room, and the room itself when they may. A signed-in
+ * client on the guest list wins; otherwise a live share link lets them in.
+ */
+async function actorIn(slug: string): Promise<{ who: Who; room: RoomRow } | { error: string }> {
   const room = await getRoomBySlug(slug);
-  if (!room || !isRoomOpen(room)) return null;
-  if (client && !(await clientMayOpen(room, client))) return null;
-  return room;
+  if (!room || !isRoomOpen(room)) return { error: "This room is no longer available." };
+  const client = await getClientUser();
+  if (client && (await clientMayOpen(room, client))) return { who: { kind: "client", client, name: client.name }, room };
+  if (!client && (await isAdmin())) return { who: { kind: "admin", name: "Kindly Put Studio" }, room };
+  const guest = await shareGuestFor(room);
+  if (guest) return { who: { kind: "guest", guest, name: guest.name }, room };
+  return { error: client ? "This room is no longer available." : SIGN_IN };
+}
+
+/** The activity columns that say who did something. */
+function actorColumns(who: Who) {
+  if (who.kind === "client") return { actor_name: who.name, client_id: who.client.id, viewer_id: who.client.id };
+  if (who.kind === "guest") return { actor_name: `${who.name} (guest link)`, client_id: null, viewer_id: `share:${who.guest.linkId}` };
+  return null;
 }
 
 async function fileInRoom(roomId: string, fileId: string) {
@@ -31,27 +52,13 @@ async function fileInRoom(roomId: string, fileId: string) {
   return !!data;
 }
 
-/** The signed-in client, or (when previewing) the studio itself. */
-async function actor(): Promise<{ client: ClientUser | null; name: string } | null> {
-  const client = await getClientUser();
-  if (client) return { client, name: client.name };
-  if (await isAdmin()) return { client: null, name: "Kindly Put Studio" };
-  return null;
-}
-
 /** Counts one view per browser session. Studio visits are not counted. */
 export async function recordView(slug: string): Promise<Result> {
-  const client = await getClientUser();
-  if (!client) return { ok: true };
-  const room = await openRoom(slug, client);
-  if (!room) return { ok: false, error: "Room not found." };
-  await supabaseAdmin().from("activity").insert({
-    room_id: room.id,
-    type: "view",
-    client_id: client.id,
-    actor_name: client.name,
-    viewer_id: client.id,
-  });
+  const res = await actorIn(slug);
+  if ("error" in res) return { ok: true };
+  const cols = actorColumns(res.who);
+  if (!cols) return { ok: true };
+  await supabaseAdmin().from("activity").insert({ room_id: res.room.id, type: "view", ...cols });
   return { ok: true };
 }
 
@@ -59,10 +66,13 @@ export async function setReview(input: { slug: string; fileId: string; status: R
   if (!["pending", "approved", "changes"].includes(input.status)) {
     return { ok: false, error: "Unknown status." };
   }
-  const who = await actor();
-  if (!who) return { ok: false, error: SIGN_IN };
-  const room = await openRoom(input.slug, who.client);
-  if (!room) return { ok: false, error: "This room is no longer available." };
+  const res = await actorIn(input.slug);
+  if ("error" in res) return { ok: false, error: res.error };
+  const { who, room } = res;
+  if (who.kind === "guest" && !who.guest.canReview) return { ok: false, error: VIEW_ONLY };
+  if (who.kind === "guest" && !(await rateLimit(`review:share:${who.guest.linkId}`, 400, 600))) {
+    return { ok: false, error: "That is a lot at once. Please wait a few minutes." };
+  }
   if (!(await fileInRoom(room.id, input.fileId))) return { ok: false, error: "File not found." };
 
   const status = input.status;
@@ -72,20 +82,19 @@ export async function setReview(input: { slug: string; fileId: string; status: R
     .update({
       review_status: status,
       reviewed_by: status === "pending" ? null : who.name,
-      reviewed_by_client: status === "pending" ? null : who.client?.id ?? null,
+      reviewed_by_client: status === "pending" || who.kind !== "client" ? null : who.client.id,
       reviewed_at: status === "pending" ? null : new Date().toISOString(),
     })
     .eq("id", input.fileId);
   if (error) return { ok: false, error: "Could not save. Please try again." };
 
-  if (who.client) {
+  const cols = actorColumns(who);
+  if (cols) {
     await db.from("activity").insert({
       room_id: room.id,
       file_id: input.fileId,
       type: status === "approved" ? "approve" : status === "changes" ? "decline" : "reset",
-      actor_name: who.name,
-      client_id: who.client.id,
-      viewer_id: who.client.id,
+      ...cols,
     });
   }
   return { ok: true };
@@ -98,10 +107,10 @@ export async function setReview(input: { slug: string; fileId: string; status: R
 export async function approveRemaining(input: { slug: string; fileIds: string[] }): Promise<Result<{ approved: string[] }>> {
   const ids = Array.isArray(input.fileIds) ? [...new Set(input.fileIds.map(String))].slice(0, 500) : [];
   if (ids.length === 0) return { ok: true, data: { approved: [] } };
-  const who = await actor();
-  if (!who) return { ok: false, error: SIGN_IN };
-  const room = await openRoom(input.slug, who.client);
-  if (!room) return { ok: false, error: "This room is no longer available." };
+  const res = await actorIn(input.slug);
+  if ("error" in res) return { ok: false, error: res.error };
+  const { who, room } = res;
+  if (who.kind === "guest" && !who.guest.canReview) return { ok: false, error: VIEW_ONLY };
 
   const db = supabaseAdmin();
   const { data, error } = await db
@@ -109,7 +118,7 @@ export async function approveRemaining(input: { slug: string; fileIds: string[] 
     .update({
       review_status: "approved",
       reviewed_by: who.name,
-      reviewed_by_client: who.client?.id ?? null,
+      reviewed_by_client: who.kind === "client" ? who.client.id : null,
       reviewed_at: new Date().toISOString(),
     })
     .eq("room_id", room.id)
@@ -120,15 +129,14 @@ export async function approveRemaining(input: { slug: string; fileIds: string[] 
   if (error) return { ok: false, error: "Could not save. Please try again." };
   const approved = (data ?? []).map((f) => f.id as string);
 
-  if (who.client && approved.length > 0) {
+  const cols = actorColumns(who);
+  if (cols && approved.length > 0) {
     // One line in the studio's activity feed instead of one per file.
-    const row = {
+    const row: Record<string, unknown> = {
       room_id: room.id,
       file_id: approved.length === 1 ? approved[0] : null,
       type: "approve",
-      actor_name: who.name,
-      client_id: who.client.id,
-      viewer_id: who.client.id,
+      ...cols,
     };
     const { error: logError } = await db.from("activity").insert({ ...row, meta: { count: approved.length } });
     // Databases without the activity.meta column (migration 0007) still get the line.
@@ -148,17 +156,17 @@ export async function addComment(input: {
   if (!body) return { ok: false, error: "Write a comment first." };
   const tc = Number(input.timecode);
   const timecode = input.timecode != null && Number.isFinite(tc) && tc >= 0 && tc < 86400 ? Math.round(tc * 10) / 10 : null;
-  const who = await actor();
-  if (!who) return { ok: false, error: SIGN_IN };
-  if (who.client && !(await rateLimit(`comment:${who.client.id}`, 40, 600))) {
+  const res = await actorIn(input.slug);
+  if ("error" in res) return { ok: false, error: res.error };
+  const { who, room } = res;
+  if (who.kind === "guest" && !who.guest.canReview) return { ok: false, error: VIEW_ONLY };
+  const limitKey = who.kind === "client" ? who.client.id : who.kind === "guest" ? `share:${who.guest.linkId}` : null;
+  if (limitKey && !(await rateLimit(`comment:${limitKey}`, 40, 600))) {
     return { ok: false, error: "That is a lot of comments at once. Please wait a few minutes." };
   }
-
-  const room = await openRoom(input.slug, who.client);
-  if (!room) return { ok: false, error: "This room is no longer available." };
   if (!(await fileInRoom(room.id, input.fileId))) return { ok: false, error: "File not found." };
 
-  const fromAgency = !who.client;
+  const fromAgency = who.kind === "admin";
   const db = supabaseAdmin();
   const { data, error } = await db
     .from("comments")
@@ -168,22 +176,16 @@ export async function addComment(input: {
       author_name: fromAgency ? room.delivered_by : who.name,
       body,
       from_agency: fromAgency,
-      client_id: who.client?.id ?? null,
+      client_id: who.kind === "client" ? who.client.id : null,
       timecode,
     })
     .select("id, created_at, author_name")
     .single();
   if (error || !data) return { ok: false, error: "Could not post. Please try again." };
 
-  if (who.client) {
-    await db.from("activity").insert({
-      room_id: room.id,
-      file_id: input.fileId,
-      type: "comment",
-      actor_name: who.name,
-      client_id: who.client.id,
-      viewer_id: who.client.id,
-    });
+  const cols = actorColumns(who);
+  if (cols) {
+    await db.from("activity").insert({ room_id: room.id, file_id: input.fileId, type: "comment", ...cols });
   }
   return {
     ok: true,
@@ -193,23 +195,19 @@ export async function addComment(input: {
 
 /** The client says they are done reviewing this round. The studio sees it in the activity feed. */
 export async function submitFeedback(slug: string): Promise<Result<{ sentAt: string }>> {
-  const client = await getClientUser();
-  if (!client) return { ok: false, error: SIGN_IN };
-  const room = await openRoom(slug, client);
-  if (!room) return { ok: false, error: "This room is no longer available." };
-  if (!(await rateLimit(`submit:${client.id}:${room.id}`, 5, 3600))) {
+  const res = await actorIn(slug);
+  if ("error" in res) return { ok: false, error: res.error };
+  const { who, room } = res;
+  const cols = actorColumns(who);
+  if (!cols) return { ok: false, error: SIGN_IN };
+  if (who.kind === "guest" && !who.guest.canReview) return { ok: false, error: VIEW_ONLY };
+  if (!(await rateLimit(`submit:${cols.viewer_id}:${room.id}`, 5, 3600))) {
     return { ok: false, error: "Your feedback is already on its way." };
   }
   const sentAt = new Date().toISOString();
   const db = supabaseAdmin();
   await db.from("rooms").update({ feedback_sent_at: sentAt }).eq("id", room.id);
-  await db.from("activity").insert({
-    room_id: room.id,
-    type: "submit",
-    actor_name: client.name,
-    client_id: client.id,
-    viewer_id: client.id,
-  });
+  await db.from("activity").insert({ room_id: room.id, type: "submit", ...cols });
   return { ok: true, data: { sentAt } };
 }
 

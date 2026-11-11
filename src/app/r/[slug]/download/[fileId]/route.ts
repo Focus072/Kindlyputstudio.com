@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { isAdmin } from "@/lib/auth";
 import { getClientUser } from "@/lib/client-auth";
 import { clientMayOpen } from "@/lib/access";
+import { shareGuestFor } from "@/lib/share-links";
 import { canDownload, getRoomBySlug, isRoomOpen } from "@/lib/data";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ORIGINALS_BUCKET } from "@/lib/storage";
@@ -21,8 +22,10 @@ export async function GET(
   const client = await getClientUser();
   const admin = await isAdmin();
   const asJson = req.nextUrl.searchParams.get("as") === "json";
-  if (!client && !admin) return Response.redirect(new URL(`/r/${slug}`, req.url), 302);
-  if (!admin && client && !(await clientMayOpen(room, client))) return Response.redirect(new URL(`/r/${slug}`, req.url), 302);
+  const member = admin || (client ? await clientMayOpen(room, client) : false);
+  // No account, or not on the guest list: a live share link still lets them download.
+  const guest = member ? null : await shareGuestFor(room);
+  if (!member && !guest) return Response.redirect(new URL(`/r/${slug}`, req.url), 302);
 
   const db = supabaseAdmin();
   const { data: file } = await db
@@ -46,8 +49,10 @@ export async function GET(
     .createSignedUrl(file.original_path, 120, { download: file.file_name });
   if (error || !data) return new Response("Could not create download", { status: 500 });
 
-  if (client) {
+  if (client && !guest) {
     await db.from("activity").insert({ room_id: room.id, file_id: file.id, type: "download", client_id: client.id, actor_name: client.name });
+  } else if (guest) {
+    await db.from("activity").insert({ room_id: room.id, file_id: file.id, type: "download", actor_name: `${guest.name} (guest link)`, viewer_id: `share:${guest.linkId}` });
   }
   if (asJson) {
     return Response.json(
