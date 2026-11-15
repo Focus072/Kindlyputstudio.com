@@ -12,13 +12,15 @@ type Props = {
   room?: RoomRow;
   submitLabel: string;
   /** Studio defaults from Admin > Settings, used for new rooms. */
-  defaults?: { deliveredBy: string; theme: string };
+  defaults?: { deliveredBy: string; theme: string; clientName?: string };
+  /** Client names from the client book, offered as suggestions. */
+  clientNames?: string[];
 };
 
 const field =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-brand focus:ring-4 focus:ring-brand/15 sm:text-sm";
 
-export function RoomForm({ action, room, submitLabel, defaults }: Props) {
+export function RoomForm({ action, room, submitLabel, defaults, clientNames = [] }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const [preset, setPreset] = useState(room?.theme_preset ?? defaults?.theme ?? DEFAULT_THEME);
   const [payment, setPayment] = useState(room?.payment_status ?? "none");
@@ -33,7 +35,12 @@ export function RoomForm({ action, room, submitLabel, defaults }: Props) {
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Prepared for (client)</span>
-          <input name="client_name" required maxLength={60} defaultValue={room?.client_name} placeholder="Luigi's" className={field} />
+          <input name="client_name" required maxLength={60} defaultValue={room?.client_name ?? defaults?.clientName} placeholder="Luigi's" list="kp-client-names" autoComplete="off" className={field} />
+          <datalist id="kp-client-names">
+            {clientNames.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold text-slate-700">Delivered by</span>

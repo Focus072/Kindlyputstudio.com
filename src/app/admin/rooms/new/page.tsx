@@ -4,10 +4,16 @@ import { createRoom } from "@/app/admin/actions";
 import { RoomForm } from "@/components/admin/RoomForm";
 import { requireAdmin } from "@/lib/auth";
 import { getStudioSettings } from "@/lib/settings";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-export default async function NewRoomPage() {
+export default async function NewRoomPage({ searchParams }: PageProps<"/admin/rooms/new">) {
   await requireAdmin();
-  const studio = await getStudioSettings();
+  const sp = await searchParams;
+  const [studio, { data: clients }] = await Promise.all([
+    getStudioSettings(),
+    supabaseAdmin().from("calendar_clients").select("name").order("name"),
+  ]);
+  const clientName = typeof sp.client === "string" ? sp.client.slice(0, 60) : undefined;
   return (
     <main className="max-w-3xl">
       <Link href="/admin" className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-ink max-sm:-my-2.5 max-sm:py-2.5">
@@ -19,7 +25,8 @@ export default async function NewRoomPage() {
         <RoomForm
           action={createRoom}
           submitLabel="Create room"
-          defaults={{ deliveredBy: studio.deliveredBy, theme: studio.defaultTheme }}
+          defaults={{ deliveredBy: studio.deliveredBy, theme: studio.defaultTheme, clientName }}
+          clientNames={(clients ?? []).map((c) => c.name as string)}
         />
       </div>
     </main>
