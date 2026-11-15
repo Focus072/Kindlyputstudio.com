@@ -1,51 +1,71 @@
 import Link from "next/link";
-import { ClientAvatar } from "@/components/admin/ClientAvatar";
+import { Plus } from "lucide-react";
+import { ClientDirectory, type DirectoryClient } from "@/components/admin/clients/ClientDirectory";
+import { ClientsTabs } from "@/components/admin/clients/ClientsTabs";
 import { requireAdmin } from "@/lib/auth";
-import { listClients } from "@/lib/clients-data";
-import { timeAgo } from "@/lib/format";
+import { channelsByClient, listClientProfiles, sameName } from "@/lib/client-profiles";
+import { nextOccurrence } from "@/lib/client-profile-types";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export default async function ClientsPage() {
   await requireAdmin();
-  const clients = await listClients();
+  const db = supabaseAdmin();
+  const [profiles, channels, { data: rooms }, { count: logins }] = await Promise.all([
+    listClientProfiles(),
+    channelsByClient(),
+    db.from("rooms").select("client_name, status"),
+    db.from("clients").select("id", { count: "exact", head: true }),
+  ]);
+
+  const list: DirectoryClient[] = profiles.map((p) => {
+    const mine = (rooms ?? []).filter((r) => sameName(r.client_name as string, p.name));
+    const upcoming = [
+      ...(p.renews_on ? [{ label: "Renews", date: p.renews_on, yearly: false }] : []),
+      ...p.dates.map((d) => ({ ...d, yearly: true })),
+    ]
+      .map((d) => ({ label: d.label, at: d.yearly ? nextOccurrence(d.date) : new Date(`${d.date}T12:00:00`) }))
+      .filter((d): d is { label: string; at: Date } => !!d.at && d.at.getTime() >= Date.now() - 864e5)
+      .sort((a, b) => a.at.getTime() - b.at.getTime())[0];
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      status: p.status,
+      industry: p.industry,
+      contact: p.contacts[0] ?? null,
+      email: p.email,
+      phone: p.phone,
+      package: p.package,
+      rate: p.monthly_rate,
+      rooms: mine.length,
+      liveRooms: mine.filter((r) => r.status === "live").length,
+      accounts: (channels.get(p.id) ?? []).map((c) => c.service),
+      next: upcoming ? { label: upcoming.label, at: upcoming.at.toISOString() } : null,
+    };
+  });
 
   return (
     <main>
-      <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">Client accounts</p>
-      <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Clients</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Everyone who created an account from a room link. {clients.length} total.
-      </p>
-
-      {clients.length === 0 ? (
-        <div className="mt-8 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          No client accounts yet. They appear here the moment a client signs up from a room link.
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="font-typewriter text-sm text-slate-500 max-sm:hidden">Client book</p>
+          <h1 className="font-display text-[2.375rem] uppercase leading-none text-ink sm:text-5xl">Clients</h1>
         </div>
-      ) : (
-        <ul className="mt-8 divide-y divide-slate-100 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200">
-          {clients.map((c) => (
-            <li key={c.id}>
-              <Link href={`/admin/clients/${c.id}`} className="flex items-center gap-4 px-4 py-4 hover:bg-slate-50 active:bg-slate-100 sm:px-5">
-                <ClientAvatar name={c.full_name ?? c.email ?? "?"} url={c.avatar_url} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-ink">{c.full_name ?? "No name"}</p>
-                  <p className="truncate text-sm text-slate-500">{c.email}</p>
-                  <p className="mt-0.5 text-xs text-slate-400 sm:hidden">
-                    {c.roomCount} {c.roomCount === 1 ? "room" : "rooms"} · {c.approvals} approved · seen {timeAgo(c.last_seen_at)}
-                  </p>
-                </div>
-                <div className="hidden text-right text-xs text-slate-500 sm:block">
-                  <p>
-                    {c.roomCount} {c.roomCount === 1 ? "room" : "rooms"} · {c.approvals} {c.approvals === 1 ? "approval" : "approvals"} · {c.comments} {c.comments === 1 ? "note" : "notes"}
-                  </p>
-                  <p>
-                    {c.provider === "google" ? "Google" : "Email"} · last seen {timeAgo(c.last_seen_at)}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+        <Link
+          href="/admin/clients/new"
+          aria-label="New client"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-ink text-white active:bg-slate-brand sm:hidden"
+        >
+          <Plus className="size-5" strokeWidth={2.4} />
+        </Link>
+        <Link href="/admin/clients/new" className="hidden items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-bold text-white hover:bg-slate-brand sm:inline-flex">
+          <Plus className="size-4" /> New client
+        </Link>
+      </div>
+      <div className="mt-5">
+        <ClientsTabs active="clients" clients={profiles.length} logins={logins ?? undefined} />
+      </div>
+      <ClientDirectory clients={list} />
     </main>
   );
 }

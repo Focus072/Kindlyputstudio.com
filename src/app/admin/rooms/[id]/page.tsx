@@ -125,7 +125,7 @@ export default async function AdminRoomPage({ params }: PageProps<"/admin/rooms/
             {roomClients.map(({ client, lastOpened }) => (
               <li key={client!.id}>
                 <Link
-                  href={`/admin/clients/${client!.id}`}
+                  href={`/admin/clients/logins/${client!.id}`}
                   className="flex items-center gap-2 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-sm shadow-sm ring-1 ring-slate-200 hover:ring-slate-300"
                 >
                   <ClientAvatar name={client!.full_name ?? client!.email ?? "?"} url={client!.avatar_url} size="size-7" />
